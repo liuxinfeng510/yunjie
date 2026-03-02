@@ -60,4 +60,21 @@ public class HerbService {
     public boolean deleteById(Long id) {
         return herbMapper.deleteById(id) > 0;
     }
+
+    /**
+     * 根据名称模糊搜索
+     */
+    public java.util.List<Herb> searchByName(String name) {
+        if (!StringUtils.hasText(name)) {
+            return java.util.Collections.emptyList();
+        }
+        LambdaQueryWrapper<Herb> wrapper = new LambdaQueryWrapper<>();
+        wrapper.like(Herb::getName, name)
+               .or()
+               .like(Herb::getAlias, name)
+               .or()
+               .like(Herb::getPinyin, name)
+               .last("LIMIT 10");
+        return herbMapper.selectList(wrapper);
+    }
 }

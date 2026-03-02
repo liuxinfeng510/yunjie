@@ -24,3 +24,39 @@ export function approveStockIn(id) {
 export function completeStockIn(id) {
   return request.put(`/stock-in/${id}/complete`)
 }
+
+// 出库
+export function getStockOutPage(params) {
+  return request.get('/stock-out/page', { params })
+}
+export function getStockOut(id) {
+  return request.get(`/stock-out/${id}`)
+}
+export function createStockOut(data) {
+  return request.post('/stock-out/', data)
+}
+export function approveStockOut(id) {
+  return request.put(`/stock-out/${id}/approve`)
+}
+export function completeStockOut(id) {
+  return request.put(`/stock-out/${id}/complete`)
+}
+
+// 盘点
+export function getStockCheckPage(params) {
+  return request.get('/stock-check/page', { params })
+}
+export function getStockCheck(id) {
+  return request.get(`/stock-check/${id}`)
+}
+export function createStockCheck(data) {
+  return request.post('/stock-check/', data)
+}
+export function updateStockCheckDetail(detailId, actualQuantity, diffReason) {
+  return request.put(`/stock-check/detail/${detailId}`, null, {
+    params: { actualQuantity, diffReason }
+  })
+}
+export function completeStockCheck(id) {
+  return request.put(`/stock-check/${id}/complete`)
+}

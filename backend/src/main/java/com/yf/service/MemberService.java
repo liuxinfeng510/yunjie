@@ -135,4 +135,33 @@ public class MemberService {
                .orderByDesc(MemberPointsLog::getCreatedAt);
         return memberPointsLogMapper.selectPage(page, wrapper);
     }
+
+    /**
+     * 根据微信OpenID查找会员
+     */
+    public Member findByWechatOpenid(String openid) {
+        if (!StringUtils.hasText(openid)) {
+            return null;
+        }
+        LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Member::getWechatOpenid, openid);
+        return memberMapper.selectOne(wrapper);
+    }
+
+    /**
+     * 创建会员（移动端使用）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Member createMember(Member member) {
+        String memberNo = "M" + DateUtil.format(LocalDateTime.now(), "yyyyMMddHHmmss");
+        member.setMemberNo(memberNo);
+        if (member.getPoints() == null) {
+            member.setPoints(0);
+        }
+        if (!StringUtils.hasText(member.getStatus())) {
+            member.setStatus("正常");
+        }
+        memberMapper.insert(member);
+        return member;
+    }
 }

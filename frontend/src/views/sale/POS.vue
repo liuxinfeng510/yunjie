@@ -122,6 +122,10 @@
             <span>总金额：</span>
             <span class="amount">¥{{ totalAmount.toFixed(2) }}</span>
           </div>
+          <div v-if="currentMember && memberDiscount < 1" class="summary-item">
+            <span>会员折扣（{{ (memberDiscount * 10).toFixed(1) }}折）：</span>
+            <span style="color:#67c23a;">-¥{{ (totalAmount * (1 - memberDiscount)).toFixed(2) }}</span>
+          </div>
           <div class="summary-item">
             <span>优惠：</span>
             <el-input-number
@@ -166,6 +170,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, User, Delete } from '@element-plus/icons-vue'
 import { getDrugPage } from '@/api/drug'
 import { getMemberPage } from '@/api/member'
+import { getMemberLevelList } from '@/api/member'
 import { createSaleOrder } from '@/api/sale'
 
 // 搜索和药品列表
@@ -179,6 +184,7 @@ const cartItems = ref([])
 // 会员信息
 const memberPhone = ref('')
 const currentMember = ref(null)
+const memberLevels = ref([])
 
 // 支付信息
 const discountAmount = ref(0)
@@ -189,8 +195,16 @@ const totalAmount = computed(() => {
   return cartItems.value.reduce((sum, item) => sum + item.quantity * item.retailPrice, 0)
 })
 
+// 会员等级折扣
+const memberDiscount = computed(() => {
+  if (!currentMember.value || !currentMember.value.levelId) return 1
+  const level = memberLevels.value.find(l => l.id === currentMember.value.levelId)
+  return level ? level.discount : 1
+})
+
 const payAmount = computed(() => {
-  return Math.max(0, totalAmount.value - discountAmount.value)
+  const afterDiscount = totalAmount.value * memberDiscount.value
+  return Math.max(0, afterDiscount - discountAmount.value)
 })
 
 // 搜索药品
@@ -323,7 +337,17 @@ const handleCheckout = async () => {
 
     const res = await createSaleOrder(orderData)
     if (res.code === 200) {
-      ElMessage.success('结算成功')
+      const orderNo = res.data?.orderNo || ''
+      await ElMessageBox.alert(
+        `<div style="text-align:center;">
+          <p style="font-size:18px; font-weight:600; margin-bottom:8px;">结算成功</p>
+          <p>订单号: ${orderNo}</p>
+          <p>实付金额: <span style="color:#ff6b00; font-size:20px; font-weight:700;">¥${payAmount.value.toFixed(2)}</span></p>
+          <p style="margin-top:12px; color:#909399; font-size:12px;">支付方式: ${paymentMethod.value}</p>
+        </div>`,
+        '收银完成',
+        { dangerouslyUseHTMLString: true, confirmButtonText: '完成', center: true }
+      )
       // 重置状态
       cartItems.value = []
       discountAmount.value = 0
@@ -350,11 +374,20 @@ const handleKeyDown = (e) => {
 
 onMounted(() => {
   window.addEventListener('keydown', handleKeyDown)
+  loadMemberLevels()
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
 })
+
+// 加载会员等级列表
+const loadMemberLevels = async () => {
+  try {
+    const res = await getMemberLevelList()
+    if (res.code === 200) { memberLevels.value = res.data || [] }
+  } catch { /* 静默 */ }
+}
 </script>
 
 <style scoped lang="scss">

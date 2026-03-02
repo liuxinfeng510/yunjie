@@ -59,3 +59,11 @@ jwt:
 # File Upload
 file:
   upload-dir: ./uploads
+
+# AI Configuration (Alibaba Cloud DashScope)
+ai:
+  dashscope:
+    api-key: ${DASHSCOPE_API_KEY:sk-demo-key}
+    text-model: qwen-max
+    vision-model: qwen-vl-max
+    timeout: 60000

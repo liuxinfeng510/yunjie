@@ -64,6 +64,12 @@ const routes = [
         component: () => import('@/views/herb/PrescriptionList.vue'),
         meta: { title: '中药处方' }
       },
+      {
+        path: 'herb/weighing',
+        name: 'SmartWeighing',
+        component: () => import('@/views/herb/SmartWeighing.vue'),
+        meta: { title: '智能称重' }
+      },
       // 库存管理
       {
         path: 'inventory',
@@ -78,10 +84,28 @@ const routes = [
         meta: { title: '入库管理' }
       },
       {
+        path: 'inventory/stock-out',
+        name: 'StockOutList',
+        component: () => import('@/views/inventory/StockOutList.vue'),
+        meta: { title: '出库管理' }
+      },
+      {
+        path: 'inventory/stock-check',
+        name: 'StockCheckList',
+        component: () => import('@/views/inventory/StockCheckList.vue'),
+        meta: { title: '盘点管理' }
+      },
+      {
         path: 'inventory/warnings',
         name: 'InventoryWarnings',
         component: () => import('@/views/inventory/Warnings.vue'),
         meta: { title: '库存预警' }
+      },
+      {
+        path: 'inventory/expiry',
+        name: 'ExpiryWarning',
+        component: () => import('@/views/inventory/ExpiryWarning.vue'),
+        meta: { title: '效期预警' }
       },
       // 销售管理
       {
@@ -96,12 +120,36 @@ const routes = [
         component: () => import('@/views/sale/OrderList.vue'),
         meta: { title: '销售记录' }
       },
+      {
+        path: 'sale/refund',
+        name: 'RefundList',
+        component: () => import('@/views/sale/RefundList.vue'),
+        meta: { title: '退货管理' }
+      },
       // 会员管理
       {
         path: 'member',
         name: 'MemberList',
         component: () => import('@/views/member/MemberList.vue'),
         meta: { title: '会员管理', icon: 'User' }
+      },
+      {
+        path: 'member/level',
+        name: 'MemberLevel',
+        component: () => import('@/views/member/MemberLevelManage.vue'),
+        meta: { title: '等级管理' }
+      },
+      {
+        path: 'member/health',
+        name: 'MemberHealth',
+        component: () => import('@/views/member/HealthProfile.vue'),
+        meta: { title: '健康画像' }
+      },
+      {
+        path: 'member/chronic-disease',
+        name: 'ChronicDisease',
+        component: () => import('@/views/member/ChronicDisease.vue'),
+        meta: { title: '慢病管理' }
       },
       // GSP合规
       {
@@ -122,6 +170,12 @@ const routes = [
         component: () => import('@/views/gsp/TemperatureLog.vue'),
         meta: { title: '温湿度监控' }
       },
+      {
+        path: 'gsp/compliance',
+        name: 'GspCompliance',
+        component: () => import('@/views/gsp/ComplianceCheck.vue'),
+        meta: { title: '合规检查' }
+      },
       // 系统管理
       {
         path: 'system/config',
@@ -140,6 +194,19 @@ const routes = [
         name: 'DataMigration',
         component: () => import('@/views/system/DataMigration.vue'),
         meta: { title: '数据迁移' }
+      },
+      {
+        path: 'system/device',
+        name: 'DeviceManage',
+        component: () => import('@/views/system/DeviceManage.vue'),
+        meta: { title: '设备管理' }
+      },
+      // AI智能
+      {
+        path: 'ai/assistant',
+        name: 'AiAssistant',
+        component: () => import('@/views/ai/AiAssistant.vue'),
+        meta: { title: 'AI助手', icon: 'MagicStick' }
       }
     ]
   }

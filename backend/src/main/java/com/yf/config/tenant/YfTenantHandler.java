@@ -20,7 +20,8 @@ public class YfTenantHandler implements TenantLineHandler {
             "herb_incompatibility",
             "medical_insurance_catalog",
             "combined_medication",
-            "data_dictionary"
+            "data_dictionary",
+            "audit_log"
     );
 
     @Override

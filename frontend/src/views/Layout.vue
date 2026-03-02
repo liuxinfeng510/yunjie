@@ -40,6 +40,8 @@
           </template>
           <el-menu-item index="/inventory">库存查询</el-menu-item>
           <el-menu-item index="/inventory/stock-in">入库管理</el-menu-item>
+          <el-menu-item index="/inventory/stock-out">出库管理</el-menu-item>
+          <el-menu-item index="/inventory/stock-check">盘点管理</el-menu-item>
           <el-menu-item index="/inventory/warnings">库存预警</el-menu-item>
         </el-sub-menu>
 
@@ -50,12 +52,17 @@
           </template>
           <el-menu-item index="/sale/pos">收银台</el-menu-item>
           <el-menu-item index="/sale/orders">销售记录</el-menu-item>
+          <el-menu-item index="/sale/refund">退货管理</el-menu-item>
         </el-sub-menu>
 
-        <el-menu-item index="/member">
-          <el-icon><User /></el-icon>
-          <template #title>会员管理</template>
-        </el-menu-item>
+        <el-sub-menu index="member-menu">
+          <template #title>
+            <el-icon><User /></el-icon>
+            <span>会员管理</span>
+          </template>
+          <el-menu-item index="/member">会员列表</el-menu-item>
+          <el-menu-item index="/member/level">等级管理</el-menu-item>
+        </el-sub-menu>
 
         <el-sub-menu index="gsp-menu">
           <template #title>

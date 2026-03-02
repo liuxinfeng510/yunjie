@@ -21,3 +21,23 @@ export function addPoints(id, data) {
 export function deductPoints(id, data) {
   return request.post(`/member/${id}/deduct-points`, data)
 }
+
+// 会员等级
+export function getMemberLevelPage(params) {
+  return request.get('/member-level/page', { params })
+}
+export function getMemberLevelList() {
+  return request.get('/member-level/list')
+}
+export function getMemberLevel(id) {
+  return request.get(`/member-level/${id}`)
+}
+export function createMemberLevel(data) {
+  return request.post('/member-level/', data)
+}
+export function updateMemberLevel(id, data) {
+  return request.put(`/member-level/${id}`, data)
+}
+export function deleteMemberLevel(id) {
+  return request.delete(`/member-level/${id}`)
+}
