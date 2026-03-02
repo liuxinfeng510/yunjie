@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+frontend/node_modules/
+mobile-app/node_modules/
+
+# Build outputs
+backend/target/
+frontend/dist/
+mobile-app/dist/
+
+# Package locks
+package-lock.json
+frontend/package-lock.json
+mobile-app/package-lock.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# Vite cache
+.vite/
+frontend/.vite/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+nul
+
+# Java
+*.class
+*.jar
+*.war
+
+# Archives
+*.zip
+*.tar.gz
+
+# Uploads
+uploads/
+
+# Qoder
+.qoder/
+mobile-app/.qoder/
+
+# Session logs / reports
+session-*.md
+deployment-report.md
+final-deployment-report.md
+session-log-*.md
+
+# Temp
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# Sensitive files
+server.pem
+*.pem
+.env
+docker/.env
+
+# Mobile build output
+mobile-app/unpackage/
