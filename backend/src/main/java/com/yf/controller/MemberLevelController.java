@@ -33,7 +33,7 @@ public class MemberLevelController {
         return ApiResponse.success(memberLevelService.getById(id));
     }
 
-    @PostMapping("/")
+    @PostMapping
     public ApiResponse<MemberLevel> create(@RequestBody MemberLevel level) {
         return ApiResponse.success(memberLevelService.create(level));
     }

@@ -18,11 +18,23 @@ export function getStockIn(id) {
 export function createStockIn(data) {
   return request.post('/stock-in', data)
 }
+export function updateStockIn(id, data) {
+  return request.put(`/stock-in/${id}`, data)
+}
 export function approveStockIn(id) {
   return request.put(`/stock-in/${id}/approve`)
 }
 export function completeStockIn(id) {
   return request.put(`/stock-in/${id}/complete`)
+}
+export function rejectStockIn(id, reason) {
+  return request.put(`/stock-in/${id}/reject`, { reason })
+}
+export function smartParseStockIn(data) {
+  return request.post('/stock-in/smart-parse', data, { timeout: 180000 })
+}
+export function smartCreateStockIn(data) {
+  return request.post('/stock-in/smart-create', data, { timeout: 60000 })
 }
 
 // 出库

@@ -19,3 +19,23 @@ export function connectSimulatedCamera(config = {}) {
 export function disconnectDevice(deviceId) {
   return request.post(`/device/disconnect/${deviceId}`)
 }
+
+// ========== 电子秤设备管理 ==========
+export function getScaleDevicePage(params) {
+  return request.get('/scale-device/page', { params })
+}
+export function createScaleDevice(data) {
+  return request.post('/scale-device', data)
+}
+export function updateScaleDevice(id, data) {
+  return request.put(`/scale-device/${id}`, data)
+}
+export function deleteScaleDevice(id) {
+  return request.delete(`/scale-device/${id}`)
+}
+export function testScaleDevice(id) {
+  return request.post(`/scale-device/${id}/test`)
+}
+export function calibrateScaleDevice(id) {
+  return request.post(`/scale-device/${id}/calibrate`)
+}

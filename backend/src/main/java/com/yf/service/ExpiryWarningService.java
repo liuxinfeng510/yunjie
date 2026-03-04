@@ -104,7 +104,7 @@ public class ExpiryWarningService {
             long daysRemaining = ChronoUnit.DAYS.between(LocalDate.now(), batch.getExpireDate());
             item.setDaysRemaining((int) daysRemaining);
 
-            // 获取药品名称
+            // 获取商品名称
             Drug drug = drugMapper.selectById(batch.getDrugId());
             if (drug != null) {
                 item.setDrugName(drug.getGenericName());

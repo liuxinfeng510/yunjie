@@ -11,6 +11,8 @@ import lombok.EqualsAndHashCode;
 @EqualsAndHashCode(callSuper = true)
 @TableName("sys_tenant")
 public class Tenant extends BaseEntity {
+    /** 租户编码 */
+    private String code;
     /** 租户名称（企业/药店名） */
     private String name;
     /** 统一社会信用代码 */

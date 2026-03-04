@@ -23,6 +23,16 @@ public class Supplier extends BaseEntity {
     private String shortName;
 
     /**
+     * 拼音
+     */
+    private String pinyin;
+
+    /**
+     * 拼音首字母
+     */
+    private String pinyinShort;
+
+    /**
      * 统一社会信用代码
      */
     private String creditCode;

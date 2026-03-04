@@ -2,10 +2,10 @@
   <div class="inventory-list-container">
     <el-card class="search-card" shadow="never">
       <el-form :model="searchForm" inline>
-        <el-form-item label="药品名称">
+        <el-form-item label="商品名称">
           <el-input
             v-model="searchForm.drugName"
-            placeholder="请输入药品名称"
+            placeholder="请输入商品名称"
             clearable
             @clear="handleSearch"
           />
@@ -64,7 +64,7 @@
         style="width: 100%"
         :row-class-name="getRowClassName"
       >
-        <el-table-column prop="drugName" label="药品名称" width="200" />
+        <el-table-column prop="drugName" label="商品名称" width="200" />
         <el-table-column prop="specification" label="规格" width="150" />
         <el-table-column prop="batchNo" label="批号" width="150" />
         <el-table-column label="数量" width="120" align="right">

@@ -53,7 +53,7 @@
         <el-card shadow="hover">
           <template #header>近效期药品 TOP5</template>
           <el-table :data="expiringDrugs" size="small" style="width:100%;">
-            <el-table-column prop="name" label="药品名称" />
+            <el-table-column prop="name" label="商品名称" />
             <el-table-column prop="batchNo" label="批号" width="100" />
             <el-table-column prop="expireDate" label="有效期至" width="110" />
             <el-table-column prop="daysLeft" label="剩余天数" width="90">
@@ -68,7 +68,7 @@
         <el-card shadow="hover">
           <template #header>畅销药品 TOP5</template>
           <el-table :data="topDrugs" size="small" style="width:100%;">
-            <el-table-column prop="name" label="药品名称" />
+            <el-table-column prop="name" label="商品名称" />
             <el-table-column prop="quantity" label="销量" width="80" />
             <el-table-column label="销售额" width="100">
               <template #default="{ row }">¥{{ row.amount }}</template>

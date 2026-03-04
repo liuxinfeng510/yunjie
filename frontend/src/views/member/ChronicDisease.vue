@@ -168,8 +168,8 @@
     <!-- 设置用药提醒对话框 -->
     <el-dialog v-model="reminderDialogVisible" title="设置用药提醒" width="500px">
       <el-form :model="reminderForm" label-width="100px">
-        <el-form-item label="药品名称" required>
-          <el-input v-model="reminderForm.drugName" placeholder="请输入药品名称" />
+        <el-form-item label="商品名称" required>
+          <el-input v-model="reminderForm.drugName" placeholder="请输入商品名称" />
         </el-form-item>
         <el-form-item label="规格">
           <el-input v-model="reminderForm.specification" />

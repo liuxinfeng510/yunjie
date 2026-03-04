@@ -2,8 +2,9 @@
   <div style="height:100vh; display:flex; justify-content:center; align-items:center; background:linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
     <el-card style="width:400px; border-radius:12px;" shadow="always">
       <div style="text-align:center; margin-bottom:30px;">
-        <h1 style="color:#409eff; font-size:28px; margin-bottom:8px;">YF 药房管理系统</h1>
-        <p style="color:#999; font-size:14px;">GSP合规 / SaaS多租户 / AI智能</p>
+        <h1 style="color:#409eff; font-size:26px; margin-bottom:8px;">云界智慧药房管理系统</h1>
+        <p style="color:#666; font-size:13px; font-weight:500;">CloudRealm Smart Pharmacy</p>
+        <p style="color:#999; font-size:12px; margin-top:6px;">GSP合规 / SaaS多租户 / AI智能</p>
       </div>
       <el-form :model="form" :rules="rules" ref="formRef" @keyup.enter="handleLogin">
         <el-form-item prop="username">
@@ -18,7 +19,7 @@
             style="width:100%;" size="large">登 录</el-button>
         </el-form-item>
       </el-form>
-      <div style="text-align:center; color:#999; font-size:12px;">默认账号: admin / admin123</div>
+      <div style="text-align:center; color:#999; font-size:12px;">默认账号: admin / Admin@123</div>
     </el-card>
   </div>
 </template>

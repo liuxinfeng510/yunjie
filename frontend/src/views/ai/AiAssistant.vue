@@ -178,7 +178,7 @@
 
               <div v-if="recommendResult && recommendResult.items" style="margin-top: 16px">
                 <el-table :data="recommendResult.items" size="small" border>
-                  <el-table-column prop="name" label="药品名称" />
+                  <el-table-column prop="name" label="商品名称" />
                   <el-table-column label="类型">
                     <template #default="{ row }">{{ row.attributes?.type }}</template>
                   </el-table-column>

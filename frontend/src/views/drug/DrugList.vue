@@ -3,8 +3,8 @@
     <!-- 搜索栏 -->
     <el-card shadow="never" style="margin-bottom: 16px;">
       <el-form :model="searchForm" inline>
-        <el-form-item label="药品名称">
-          <el-input v-model="searchForm.name" placeholder="请输入药品名称" clearable style="width: 200px;" />
+        <el-form-item label="商品名称">
+          <el-input v-model="searchForm.name" placeholder="请输入商品名称" clearable style="width: 200px;" />
         </el-form-item>
         <el-form-item label="药品分类">
           <el-tree-select
@@ -93,12 +93,13 @@
     <el-dialog
       v-model="dialogVisible"
       :title="dialogTitle"
-      width="800px"
+      width="900px"
       @close="handleDialogClose"
     >
-      <el-form :model="formData" :rules="formRules" ref="formRef" label-width="120px">
-        <el-row :gutter="20">
-          <el-col :span="12">
+      <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
+        <!-- 第一行：分类、通用名、商品名 -->
+        <el-row :gutter="16">
+          <el-col :span="8">
             <el-form-item label="药品分类" prop="categoryId">
               <el-tree-select
                 v-model="formData.categoryId"
@@ -110,59 +111,66 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="通用名" prop="genericName">
               <el-input v-model="formData.genericName" placeholder="请输入通用名" />
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="商品名" prop="tradeName">
               <el-input v-model="formData.tradeName" placeholder="请输入商品名" />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
-            <el-form-item label="条形码" prop="barcode">
-              <el-input v-model="formData.barcode" placeholder="请输入条形码" />
-            </el-form-item>
-          </el-col>
         </el-row>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
+        <!-- 第二行：批准文号、剂型、规格 -->
+        <el-row :gutter="16">
+          <el-col :span="8">
             <el-form-item label="批准文号" prop="approvalNo">
-              <el-input v-model="formData.approvalNo" placeholder="请输入批准文号" />
+              <el-input 
+                v-model="formData.approvalNo" 
+                placeholder="请输入批准文号"
+                class="ime-disabled"
+              />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="剂型" prop="dosageForm">
-              <el-input v-model="formData.dosageForm" placeholder="如:片剂、胶囊" />
+              <DictSelect
+                v-model="formData.dosageForm"
+                dict-type="dosage_form"
+                placeholder="请选择剂型"
+              />
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="20">
-          <el-col :span="12">
+          <el-col :span="8">
             <el-form-item label="规格" prop="specification">
-              <el-input v-model="formData.specification" placeholder="如:0.5g*24粒" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="单位" prop="unit">
-              <el-input v-model="formData.unit" placeholder="如:盒、瓶" />
+              <el-input v-model="formData.specification" placeholder="如:0.5g*24粒" @blur="parseSplitRatio" />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <el-row :gutter="20">
-          <el-col :span="12">
-            <el-form-item label="生产企业" prop="manufacturer">
-              <el-input v-model="formData.manufacturer" placeholder="请输入生产企业" />
+        <!-- 第三行：单位、储存条件、OTC类型 -->
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="单位" prop="unit">
+              <DictSelect
+                v-model="formData.unit"
+                dict-type="drug_unit"
+                placeholder="请选择单位"
+              />
             </el-form-item>
           </el-col>
-          <el-col :span="12">
+          <el-col :span="8">
+            <el-form-item label="储存条件" prop="storageCondition">
+              <DictSelect
+                v-model="formData.storageCondition"
+                dict-type="storage_condition"
+                placeholder="请选择储存条件"
+              />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
             <el-form-item label="OTC类型" prop="otcType">
               <el-select v-model="formData.otcType" placeholder="请选择OTC类型" style="width: 100%;">
                 <el-option label="甲类OTC" value="OTC_A" />
@@ -173,11 +181,27 @@
           </el-col>
         </el-row>
 
-        <el-form-item label="储存条件" prop="storageCondition">
-          <el-input v-model="formData.storageCondition" placeholder="如:密封,阴凉干燥处保存" />
+        <!-- 第四行：生产企业 -->
+        <el-form-item label="生产企业" prop="manufacturer">
+          <ManufacturerSelect
+            v-model="formData.manufacturer"
+            v-model:manufacturer-id="formData.manufacturerId"
+            placeholder="输入企业名称搜索"
+          />
         </el-form-item>
 
-        <el-row :gutter="20">
+        <!-- 上市许可持有人 -->
+        <el-form-item label="上市许可持有人">
+          <el-input v-model="formData.marketingAuthHolder" placeholder="请输入上市许可持有人" />
+        </el-form-item>
+
+        <!-- 第五行：条形码 -->
+        <el-form-item label="条形码">
+          <BarcodeInput v-model="barcodes" :drug-id="formData.id" />
+        </el-form-item>
+
+        <!-- 第六行：价格 -->
+        <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="进货价" prop="purchasePrice">
               <el-input-number v-model="formData.purchasePrice" :precision="2" :min="0" style="width: 100%;" />
@@ -195,13 +219,48 @@
           </el-col>
         </el-row>
 
-        <el-form-item label="医保类型" prop="medicalInsurance">
-          <el-select v-model="formData.medicalInsurance" placeholder="请选择医保类型" style="width: 100%;">
-            <el-option label="甲类" value="A" />
-            <el-option label="乙类" value="B" />
-            <el-option label="丙类(自费)" value="C" />
-          </el-select>
-        </el-form-item>
+        <!-- 第七行：医保类型、拆零 -->
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="医保类型" prop="medicalInsurance">
+              <el-select v-model="formData.medicalInsurance" placeholder="请选择医保类型" style="width: 100%;">
+                <el-option label="甲类" value="A" />
+                <el-option label="乙类" value="B" />
+                <el-option label="丙类(自费)" value="C" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="允许拆零">
+              <el-switch v-model="formData.isSplit" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8" v-if="formData.isSplit">
+            <el-form-item label="拆零比例">
+              <el-input-number v-model="formData.splitRatio" :min="1" :max="1000" style="width: 100%;" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 第八行：其他属性 -->
+        <el-row :gutter="16">
+          <el-col :span="8" v-if="formData.isSplit">
+            <el-form-item label="拆零优先">
+              <el-switch v-model="splitPrioritySwitch" />
+              <span class="form-hint">优先销售拆零商品</span>
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="重点养护">
+              <el-switch v-model="formData.isKeyMaintenance" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="8">
+            <el-form-item label="进口药品">
+              <el-switch v-model="formData.isImported" />
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
 
       <template #footer>
@@ -213,9 +272,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
+import DictSelect from '@/components/DictSelect.vue'
+import ManufacturerSelect from '@/components/ManufacturerSelect.vue'
+import BarcodeInput from '@/components/BarcodeInput.vue'
 import {
   getDrugPage,
   getDrug,
@@ -253,24 +315,39 @@ const dialogTitle = ref('新增药品')
 const formRef = ref(null)
 const submitLoading = ref(false)
 
+// 条形码列表
+const barcodes = ref([])
+
 // 表单数据
 const formData = reactive({
   id: null,
   categoryId: null,
   genericName: '',
   tradeName: '',
-  barcode: '',
   approvalNo: '',
   dosageForm: '',
   specification: '',
   unit: '',
   manufacturer: '',
+  manufacturerId: null,
+  marketingAuthHolder: '',
   otcType: '',
   storageCondition: '',
   purchasePrice: 0,
   retailPrice: 0,
   memberPrice: 0,
-  medicalInsurance: ''
+  medicalInsurance: '',
+  isSplit: false,
+  splitRatio: 1,
+  splitPriority: 0,
+  isKeyMaintenance: false,
+  isImported: false
+})
+
+// 拆零优先开关
+const splitPrioritySwitch = computed({
+  get: () => formData.splitPriority === 1,
+  set: (val) => { formData.splitPriority = val ? 1 : 0 }
 })
 
 // 表单验证规则
@@ -279,10 +356,22 @@ const formRules = {
   genericName: [{ required: true, message: '请输入通用名', trigger: 'blur' }],
   tradeName: [{ required: true, message: '请输入商品名', trigger: 'blur' }],
   specification: [{ required: true, message: '请输入规格', trigger: 'blur' }],
-  unit: [{ required: true, message: '请输入单位', trigger: 'blur' }],
+  unit: [{ required: true, message: '请选择单位', trigger: 'change' }],
   manufacturer: [{ required: true, message: '请输入生产企业', trigger: 'blur' }],
   otcType: [{ required: true, message: '请选择OTC类型', trigger: 'change' }],
   retailPrice: [{ required: true, message: '请输入零售价', trigger: 'blur' }]
+}
+
+// 从规格解析拆零比例
+const parseSplitRatio = () => {
+  const spec = formData.specification
+  if (!spec) return
+  
+  // 匹配常见规格格式：0.5g*24粒, 10mg×30片 等
+  const match = spec.match(/[*×x]\s*(\d+)/i)
+  if (match && formData.isSplit) {
+    formData.splitRatio = parseInt(match[1], 10)
+  }
 }
 
 // 加载分类树
@@ -347,7 +436,9 @@ const handleEdit = async (row) => {
   try {
     const res = await getDrug(row.id)
     if (res.code === 200) {
-      Object.assign(formData, res.data)
+      const { drug, barcodes: drugBarcodes } = res.data
+      Object.assign(formData, drug)
+      barcodes.value = drugBarcodes || []
       dialogVisible.value = true
     }
   } catch (error) {
@@ -382,9 +473,15 @@ const handleSubmit = async () => {
     if (valid) {
       submitLoading.value = true
       try {
+        // 构建请求数据（新的 DTO 结构）
+        const requestData = {
+          drug: { ...formData },
+          barcodes: barcodes.value
+        }
+        
         const res = formData.id
-          ? await updateDrug(formData.id, formData)
-          : await createDrug(formData)
+          ? await updateDrug(formData.id, requestData)
+          : await createDrug(requestData)
         
         if (res.code === 200) {
           ElMessage.success(formData.id ? '更新成功' : '新增成功')
@@ -412,18 +509,25 @@ const resetFormData = () => {
   formData.categoryId = null
   formData.genericName = ''
   formData.tradeName = ''
-  formData.barcode = ''
   formData.approvalNo = ''
   formData.dosageForm = ''
   formData.specification = ''
   formData.unit = ''
   formData.manufacturer = ''
+  formData.manufacturerId = null
+  formData.marketingAuthHolder = ''
   formData.otcType = ''
   formData.storageCondition = ''
   formData.purchasePrice = 0
   formData.retailPrice = 0
   formData.memberPrice = 0
   formData.medicalInsurance = ''
+  formData.isSplit = false
+  formData.splitRatio = 1
+  formData.splitPriority = 0
+  formData.isKeyMaintenance = false
+  formData.isImported = false
+  barcodes.value = []
 }
 
 // 初始化
@@ -436,5 +540,16 @@ onMounted(() => {
 <style scoped>
 .drug-list-container {
   padding: 16px;
+}
+
+/* 禁用输入法 */
+.ime-disabled :deep(input) {
+  ime-mode: disabled;
+}
+
+.form-hint {
+  margin-left: 8px;
+  font-size: 12px;
+  color: #909399;
 }
 </style>

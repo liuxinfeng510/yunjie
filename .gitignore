@@ -61,6 +61,13 @@ session-log-*.md
 *.swp
 *.swo
 
+# Debug/notes
+ai_response_debug.txt
+test_api.ps1
+specs/
+*.txt
+测试用图片/
+
 # Sensitive files
 server.pem
 *.pem

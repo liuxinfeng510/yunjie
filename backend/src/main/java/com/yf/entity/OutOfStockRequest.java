@@ -35,7 +35,7 @@ public class OutOfStockRequest extends BaseEntity {
     private String phone;
     
     /**
-     * 药品名称
+     * 商品名称
      */
     private String drugName;
     

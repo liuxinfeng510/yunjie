@@ -1,5 +1,6 @@
 package com.yf.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -59,4 +60,10 @@ public class StockIn extends BaseEntity {
      * 审核时间
      */
     private LocalDateTime approvedAt;
+    
+    /**
+     * 供应商名称（非数据库字段，查询时填充）
+     */
+    @TableField(exist = false)
+    private String supplierName;
 }

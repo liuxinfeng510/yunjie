@@ -11,7 +11,7 @@
             border
           >
             <el-table-column type="index" label="序号" width="60" align="center" />
-            <el-table-column prop="drugName" label="药品名称" min-width="150" />
+            <el-table-column prop="drugName" label="商品名称" min-width="150" />
             <el-table-column prop="specification" label="规格" width="120" />
             <el-table-column prop="currentStock" label="当前库存" width="100" align="right">
               <template #default="{ row }">
@@ -56,7 +56,7 @@
             border
           >
             <el-table-column type="index" label="序号" width="60" align="center" />
-            <el-table-column prop="drugName" label="药品名称" min-width="150" />
+            <el-table-column prop="drugName" label="商品名称" min-width="150" />
             <el-table-column prop="specification" label="规格" width="120" />
             <el-table-column prop="batchNo" label="批号" width="120" />
             <el-table-column prop="expiryDate" label="有效期至" width="120" />
@@ -103,7 +103,7 @@
       destroy-on-close
     >
       <el-form v-if="currentDrug" :model="replenishForm" label-width="100px">
-        <el-form-item label="药品名称">
+        <el-form-item label="商品名称">
           <el-input :value="currentDrug.drugName" disabled />
         </el-form-item>
         <el-form-item label="当前库存">

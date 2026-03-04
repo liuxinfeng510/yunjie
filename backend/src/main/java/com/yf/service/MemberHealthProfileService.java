@@ -146,7 +146,7 @@ public class MemberHealthProfileService {
                 if (drug != null && drug.getCategoryId() != null) {
                     categoryFrequency.merge(drug.getCategoryId().toString(), 1, Integer::sum);
                     
-                    // 根据药品名称推断健康标签
+                    // 根据商品名称推断健康标签
                     inferHealthTags(drug.getGenericName(), analysis);
                 }
             }
@@ -172,7 +172,7 @@ public class MemberHealthProfileService {
     }
 
     /**
-     * 根据药品名称推断健康标签
+     * 根据商品名称推断健康标签
      */
     private void inferHealthTags(String drugName, MemberHealthAnalysis analysis) {
         if (drugName == null) return;

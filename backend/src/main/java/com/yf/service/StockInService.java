@@ -6,12 +6,15 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.Inventory;
 import com.yf.entity.StockIn;
 import com.yf.entity.StockInDetail;
+import com.yf.entity.Store;
+import com.yf.entity.Supplier;
 import com.yf.exception.BusinessException;
 import com.yf.mapper.StockInDetailMapper;
 import com.yf.mapper.StockInMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -27,6 +30,8 @@ public class StockInService {
     private final StockInMapper stockInMapper;
     private final StockInDetailMapper stockInDetailMapper;
     private final InventoryService inventoryService;
+    private final StoreService storeService;
+    private final SupplierService supplierService;
     
     /**
      * 分页查询入库单
@@ -38,12 +43,24 @@ public class StockInService {
         if (storeId != null) {
             wrapper.eq(StockIn::getStoreId, storeId);
         }
-        if (status != null) {
+        if (status != null && StringUtils.hasText(status)) {
             wrapper.eq(StockIn::getStatus, status);
         }
         
         wrapper.orderByDesc(StockIn::getCreatedAt);
-        return stockInMapper.selectPage(page, wrapper);
+        Page<StockIn> result = stockInMapper.selectPage(page, wrapper);
+        
+        // 填充供应商名称
+        for (StockIn record : result.getRecords()) {
+            if (record.getSupplierId() != null) {
+                Supplier supplier = supplierService.getById(record.getSupplierId());
+                if (supplier != null) {
+                    record.setSupplierName(supplier.getName());
+                }
+            }
+        }
+        
+        return result;
     }
     
     /**
@@ -72,6 +89,19 @@ public class StockInService {
         stockIn.setOrderNo(orderNo);
         stockIn.setStatus("待审核");
         
+        // 自动填充门店ID（默认使用总部/主店）
+        if (stockIn.getStoreId() == null) {
+            Store hq = storeService.getHeadquarter();
+            if (hq != null) {
+                stockIn.setStoreId(hq.getId());
+            } else {
+                List<Store> stores = storeService.listAll();
+                if (!stores.isEmpty()) {
+                    stockIn.setStoreId(stores.get(0).getId());
+                }
+            }
+        }
+        
         // 计算总金额
         BigDecimal totalAmount = details.stream()
                 .map(StockInDetail::getAmount)
@@ -89,6 +119,47 @@ public class StockInService {
         return stockIn;
     }
     
+    /**
+     * 更新入库单（仅待审核状态可编辑）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public StockIn update(Long id, StockIn stockInParam, List<StockInDetail> details) {
+        StockIn stockIn = stockInMapper.selectById(id);
+        if (stockIn == null) {
+            throw new BusinessException("入库单不存在");
+        }
+        if (!"待审核".equals(stockIn.getStatus())) {
+            throw new BusinessException("只有待审核状态的入库单才能编辑");
+        }
+
+        // 更新表头
+        stockIn.setType(stockInParam.getType());
+        stockIn.setSupplierId(stockInParam.getSupplierId());
+        stockIn.setRemark(stockInParam.getRemark());
+
+        // 计算总金额
+        BigDecimal totalAmount = details.stream()
+                .map(StockInDetail::getAmount)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        stockIn.setTotalAmount(totalAmount);
+
+        stockInMapper.updateById(stockIn);
+
+        // 删除旧明细
+        LambdaQueryWrapper<StockInDetail> delWrapper = new LambdaQueryWrapper<>();
+        delWrapper.eq(StockInDetail::getStockInId, id);
+        stockInDetailMapper.delete(delWrapper);
+
+        // 插入新明细
+        for (StockInDetail detail : details) {
+            detail.setId(null);
+            detail.setStockInId(id);
+            stockInDetailMapper.insert(detail);
+        }
+
+        return stockIn;
+    }
+
     /**
      * 审核入库单
      */
@@ -108,6 +179,23 @@ public class StockInService {
         stockInMapper.updateById(stockIn);
     }
     
+    /**
+     * 驳回入库单
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void reject(Long id, String reason) {
+        StockIn stockIn = stockInMapper.selectById(id);
+        if (stockIn == null) {
+            throw new BusinessException("入库单不存在");
+        }
+        if (!"待审核".equals(stockIn.getStatus())) {
+            throw new BusinessException("只有待审核状态的入库单才能驳回");
+        }
+        stockIn.setStatus("已驳回");
+        stockIn.setRemark(reason);
+        stockInMapper.updateById(stockIn);
+    }
+
     /**
      * 完成入库（更新库存）
      */

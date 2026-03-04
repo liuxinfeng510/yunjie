@@ -3,6 +3,12 @@ import request from '@/utils/request'
 export function getMemberPage(params) {
   return request.get('/member/page', { params })
 }
+export const pageMemberList = getMemberPage // 别名
+
+export function searchMembers(keyword) {
+  return request.get('/member/search', { params: { keyword } })
+}
+
 export function getMember(id) {
   return request.get(`/member/${id}`)
 }

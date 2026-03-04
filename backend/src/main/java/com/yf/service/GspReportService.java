@@ -60,7 +60,7 @@ public class GspReportService {
             Sheet sheet = workbook.createSheet("验收记录");
             
             Row header = sheet.createRow(0);
-            String[] headers = {"验收时间", "药品名称", "批号", "数量", "外观检查", "综合结果"};
+            String[] headers = {"验收时间", "商品名称", "批号", "数量", "外观检查", "综合结果"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }
@@ -103,7 +103,7 @@ public class GspReportService {
             Sheet sheet = workbook.createSheet("养护记录");
             
             Row header = sheet.createRow(0);
-            String[] headers = {"养护日期", "药品名称", "养护类型", "外观检查", "包装检查", "综合结果", "异常描述"};
+            String[] headers = {"养护日期", "商品名称", "养护类型", "外观检查", "包装检查", "综合结果", "异常描述"};
             for (int i = 0; i < headers.length; i++) {
                 header.createCell(i).setCellValue(headers[i]);
             }
@@ -290,7 +290,7 @@ public class GspReportService {
             Table table = new Table(UnitValue.createPercentArray(new float[]{16, 20, 14, 14, 18, 18}));
             table.setWidth(UnitValue.createPercentValue(100));
             
-            String[] headers = {"验收时间", "药品名称", "批号", "数量", "外观检查", "综合结果"};
+            String[] headers = {"验收时间", "商品名称", "批号", "数量", "外观检查", "综合结果"};
             for (String h : headers) {
                 table.addHeaderCell(createHeaderCell(h, font));
             }
@@ -344,7 +344,7 @@ public class GspReportService {
             Table table = new Table(UnitValue.createPercentArray(new float[]{14, 16, 12, 12, 12, 12, 22}));
             table.setWidth(UnitValue.createPercentValue(100));
             
-            String[] headers = {"养护日期", "药品名称", "养护类型", "外观检查", "包装检查", "综合结果", "异常描述"};
+            String[] headers = {"养护日期", "商品名称", "养护类型", "外观检查", "包装检查", "综合结果", "异常描述"};
             for (String h : headers) {
                 table.addHeaderCell(createHeaderCell(h, font));
             }

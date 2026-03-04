@@ -13,33 +13,45 @@
         style="width: 100%; margin-top: 16px"
         border
       >
-        <el-table-column prop="drugName" label="药品名称" min-width="150" />
+        <el-table-column prop="drugName" label="商品名称" min-width="150" />
         <el-table-column prop="batchNo" label="批号" width="120" />
-        <el-table-column prop="supplierName" label="供应商" min-width="150" />
         <el-table-column prop="quantity" label="数量" width="100" align="right" />
         <el-table-column prop="appearanceCheck" label="外观检查" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.appearanceCheck === 'PASS' ? 'success' : 'danger'">
+            <el-tag :type="row.appearanceCheck === 'PASS' ? 'success' : 'danger'" v-if="row.appearanceCheck">
               {{ row.appearanceCheck === 'PASS' ? '合格' : '不合格' }}
             </el-tag>
           </template>
         </el-table-column>
         <el-table-column prop="packageCheck" label="包装检查" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.packageCheck === 'PASS' ? 'success' : 'danger'">
+            <el-tag :type="row.packageCheck === 'PASS' ? 'success' : 'danger'" v-if="row.packageCheck">
               {{ row.packageCheck === 'PASS' ? '合格' : '不合格' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="conclusion" label="综合结论" width="100" align="center">
+        <el-table-column prop="labelCheck" label="标签检查" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.conclusion === 'PASS' ? 'success' : 'danger'">
-              {{ row.conclusion === 'PASS' ? '合格' : '不合格' }}
+            <el-tag :type="row.labelCheck === 'PASS' ? 'success' : 'danger'" v-if="row.labelCheck">
+              {{ row.labelCheck === 'PASS' ? '合格' : '不合格' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="acceptanceTime" label="验收时间" width="160" />
-        <el-table-column prop="acceptorName" label="验收人" width="100" />
+        <el-table-column prop="expireCheck" label="效期检查" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.expireCheck === 'PASS' ? 'success' : 'danger'" v-if="row.expireCheck">
+              {{ row.expireCheck === 'PASS' ? '合格' : '不合格' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="overallResult" label="综合结论" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.overallResult === 'PASS' ? 'success' : 'danger'">
+              {{ row.overallResult === 'PASS' ? '合格' : '不合格' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="acceptTime" label="验收时间" width="160" />
       </el-table>
 
       <!-- 分页 -->
@@ -68,14 +80,18 @@
         :rules="formRules"
         label-width="100px"
       >
-        <el-form-item label="药品名称" prop="drugName">
-          <el-input v-model="formData.drugName" placeholder="请输入药品名称" />
+        <el-form-item label="商品名称" prop="drugName">
+          <el-input v-model="formData.drugName" placeholder="请输入商品名称" />
         </el-form-item>
         <el-form-item label="批号" prop="batchNo">
           <el-input v-model="formData.batchNo" placeholder="请输入批号" />
         </el-form-item>
-        <el-form-item label="供应商" prop="supplierName">
-          <el-input v-model="formData.supplierName" placeholder="请输入供应商名称" />
+        <el-form-item label="供应商" prop="supplierId">
+          <SupplierSelect
+            v-model="formData.supplierName"
+            v-model:supplier-id="formData.supplierId"
+            placeholder="输入供应商名称/拼音搜索"
+          />
         </el-form-item>
         <el-form-item label="数量" prop="quantity">
           <el-input-number v-model="formData.quantity" :min="1" style="width: 100%" />
@@ -92,24 +108,30 @@
             <el-radio value="FAIL">不合格</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="质量检查" prop="qualityCheck">
-          <el-radio-group v-model="formData.qualityCheck">
+        <el-form-item label="标签检查" prop="labelCheck">
+          <el-radio-group v-model="formData.labelCheck">
             <el-radio value="PASS">合格</el-radio>
             <el-radio value="FAIL">不合格</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="综合结论" prop="conclusion">
-          <el-radio-group v-model="formData.conclusion">
+        <el-form-item label="效期检查" prop="expireCheck">
+          <el-radio-group v-model="formData.expireCheck">
             <el-radio value="PASS">合格</el-radio>
             <el-radio value="FAIL">不合格</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="备注" prop="remark">
+        <el-form-item label="综合结论" prop="overallResult">
+          <el-radio-group v-model="formData.overallResult">
+            <el-radio value="PASS">合格</el-radio>
+            <el-radio value="FAIL">不合格</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="formData.overallResult === 'FAIL'" label="不合格原因" prop="rejectReason">
           <el-input
-            v-model="formData.remark"
+            v-model="formData.rejectReason"
             type="textarea"
             :rows="3"
-            placeholder="请输入备注信息"
+            placeholder="请输入不合格原因"
           />
         </el-form-item>
       </el-form>
@@ -126,6 +148,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAcceptances, createAcceptance } from '@/api/gsp'
+import SupplierSelect from '@/components/SupplierSelect.vue'
 
 // 表格数据
 const tableData = ref([])
@@ -144,24 +167,27 @@ const formRef = ref(null)
 const formData = reactive({
   drugName: '',
   batchNo: '',
+  supplierId: null,
   supplierName: '',
   quantity: 1,
   appearanceCheck: 'PASS',
   packageCheck: 'PASS',
-  qualityCheck: 'PASS',
-  conclusion: 'PASS',
-  remark: ''
+  labelCheck: 'PASS',
+  expireCheck: 'PASS',
+  overallResult: 'PASS',
+  rejectReason: ''
 })
 
 const formRules = {
-  drugName: [{ required: true, message: '请输入药品名称', trigger: 'blur' }],
+  drugName: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
   batchNo: [{ required: true, message: '请输入批号', trigger: 'blur' }],
-  supplierName: [{ required: true, message: '请输入供应商名称', trigger: 'blur' }],
+  supplierId: [{ required: true, message: '请选择供应商', trigger: 'change' }],
   quantity: [{ required: true, message: '请输入数量', trigger: 'blur' }],
   appearanceCheck: [{ required: true, message: '请选择外观检查结果', trigger: 'change' }],
   packageCheck: [{ required: true, message: '请选择包装检查结果', trigger: 'change' }],
-  qualityCheck: [{ required: true, message: '请选择质量检查结果', trigger: 'change' }],
-  conclusion: [{ required: true, message: '请选择综合结论', trigger: 'change' }]
+  labelCheck: [{ required: true, message: '请选择标签检查结果', trigger: 'change' }],
+  expireCheck: [{ required: true, message: '请选择效期检查结果', trigger: 'change' }],
+  overallResult: [{ required: true, message: '请选择综合结论', trigger: 'change' }]
 }
 
 // 查询列表
@@ -169,8 +195,8 @@ const handleSearch = async () => {
   try {
     loading.value = true
     const params = {
-      current: pagination.current,
-      size: pagination.size
+      pageNum: pagination.current,
+      pageSize: pagination.size
     }
 
     const res = await getAcceptances(params)
@@ -190,13 +216,15 @@ const handleAdd = () => {
   Object.assign(formData, {
     drugName: '',
     batchNo: '',
+    supplierId: null,
     supplierName: '',
     quantity: 1,
     appearanceCheck: 'PASS',
     packageCheck: 'PASS',
-    qualityCheck: 'PASS',
-    conclusion: 'PASS',
-    remark: ''
+    labelCheck: 'PASS',
+    expireCheck: 'PASS',
+    overallResult: 'PASS',
+    rejectReason: ''
   })
   dialogVisible.value = true
 }
@@ -206,7 +234,21 @@ const handleSubmit = async () => {
   try {
     await formRef.value.validate()
     
-    const res = await createAcceptance(formData)
+    // 只发送后端实体需要的字段，排除 supplierName
+    const submitData = {
+      drugName: formData.drugName,
+      batchNo: formData.batchNo,
+      supplierId: formData.supplierId,
+      quantity: formData.quantity,
+      appearanceCheck: formData.appearanceCheck,
+      packageCheck: formData.packageCheck,
+      labelCheck: formData.labelCheck,
+      expireCheck: formData.expireCheck,
+      overallResult: formData.overallResult,
+      rejectReason: formData.rejectReason || null
+    }
+
+    const res = await createAcceptance(submitData)
     if (res.code === 200) {
       ElMessage.success('新增成功')
       dialogVisible.value = false

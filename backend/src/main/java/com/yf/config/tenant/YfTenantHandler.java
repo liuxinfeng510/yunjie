@@ -15,6 +15,7 @@ public class YfTenantHandler implements TenantLineHandler {
     /** 不需要租户隔离的表 */
     private static final List<String> IGNORE_TABLES = Arrays.asList(
             "sys_tenant",
+            "sys_dict_item",
             "drug_knowledge",
             "herb_knowledge",
             "herb_incompatibility",
@@ -40,6 +41,11 @@ public class YfTenantHandler implements TenantLineHandler {
 
     @Override
     public boolean ignoreTable(String tableName) {
+        // 超级管理员(tenant_id=0)跳过租户过滤，可查看所有租户数据
+        Long tenantId = TenantContext.getTenantId();
+        if (tenantId != null && tenantId == 0L) {
+            return true;
+        }
         return IGNORE_TABLES.contains(tableName);
     }
 }

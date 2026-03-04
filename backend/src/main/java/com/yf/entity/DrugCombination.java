@@ -18,7 +18,7 @@ public class DrugCombination extends BaseEntity {
     private Long primaryDrugId;
     
     /**
-     * 主药品名称（冗余）
+     * 主商品名称（冗余）
      */
     private String primaryDrugName;
     
@@ -28,7 +28,7 @@ public class DrugCombination extends BaseEntity {
     private Long recommendDrugId;
     
     /**
-     * 推荐药品名称（冗余）
+     * 推荐商品名称（冗余）
      */
     private String recommendDrugName;
     

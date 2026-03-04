@@ -44,7 +44,7 @@ public class StockOutController {
         return ApiResponse.success(result);
     }
 
-    @PostMapping("/")
+    @PostMapping
     public ApiResponse<StockOut> create(@RequestBody StockOutRequest request) {
         StockOut stockOut = stockOutService.create(request.getStockOut(), request.getDetails());
         return ApiResponse.success(stockOut);

@@ -44,7 +44,7 @@
         <!-- 已过期 -->
         <el-tab-pane label="已过期" name="expired">
           <el-table :data="summary.expiredBatches" size="small" border v-loading="loading">
-            <el-table-column prop="drugName" label="药品名称" min-width="150" />
+            <el-table-column prop="drugName" label="商品名称" min-width="150" />
             <el-table-column prop="specification" label="规格" width="120" />
             <el-table-column prop="batchNo" label="批号" width="120" />
             <el-table-column prop="expireDate" label="失效日期" width="120" />
@@ -65,7 +65,7 @@
         <!-- 紧急（30天内） -->
         <el-tab-pane label="紧急(30天内)" name="urgent">
           <el-table :data="summary.urgentBatches" size="small" border v-loading="loading">
-            <el-table-column prop="drugName" label="药品名称" min-width="150" />
+            <el-table-column prop="drugName" label="商品名称" min-width="150" />
             <el-table-column prop="specification" label="规格" width="120" />
             <el-table-column prop="batchNo" label="批号" width="120" />
             <el-table-column prop="expireDate" label="失效日期" width="120" />
@@ -86,7 +86,7 @@
         <!-- 近效期（90天内） -->
         <el-tab-pane label="近效期(90天内)" name="near">
           <el-table :data="summary.nearExpiryBatches" size="small" border v-loading="loading">
-            <el-table-column prop="drugName" label="药品名称" min-width="150" />
+            <el-table-column prop="drugName" label="商品名称" min-width="150" />
             <el-table-column prop="specification" label="规格" width="120" />
             <el-table-column prop="batchNo" label="批号" width="120" />
             <el-table-column prop="expireDate" label="失效日期" width="120" />

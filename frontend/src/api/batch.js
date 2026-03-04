@@ -9,6 +9,14 @@ export function queryTraceCode(traceCode) {
   return request.get('/trace-code/query', { params: { traceCode } })
 }
 
+export function queryByCode(code) {
+  return request.get('/trace-code/query', { params: { code } })
+}
+
+export function getTraceDetail(id) {
+  return request.get(`/trace-code/${id}`)
+}
+
 export function traceCode(traceCode) {
   return request.get('/trace-code/trace', { params: { traceCode } })
 }
@@ -28,6 +36,22 @@ export function getBatchPage(params) {
 
 export function getBatch(id) {
   return request.get(`/drug-batch/${id}`)
+}
+
+export function getBatchDetail(id) {
+  return request.get(`/drug-batch/${id}`)
+}
+
+export function lockBatch(id) {
+  return request.put(`/drug-batch/${id}/lock`)
+}
+
+export function unlockBatch(id) {
+  return request.put(`/drug-batch/${id}/unlock`)
+}
+
+export function getBatchStatistics() {
+  return request.get('/drug-batch/statistics')
 }
 
 export function getBatchesByDrug(drugId) {

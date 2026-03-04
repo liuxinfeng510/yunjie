@@ -76,6 +76,16 @@ public class Drug extends BaseEntity {
     private String manufacturer;
 
     /**
+     * 生产企业ID（关联drug_manufacturer表）
+     */
+    private Long manufacturerId;
+
+    /**
+     * 上市许可持有人
+     */
+    private String marketingAuthHolder;
+
+    /**
      * OTC类型 (甲类/乙类/处方药)
      */
     private String otcType;
@@ -134,4 +144,29 @@ public class Drug extends BaseEntity {
      * 状态 (启用/停用)
      */
     private String status;
+
+    /**
+     * 是否拆零销售
+     */
+    private Boolean isSplit;
+
+    /**
+     * 拆零比例（大包装:小包装）
+     */
+    private Integer splitRatio;
+
+    /**
+     * 拆零优先级（1=优先拆零销售）
+     */
+    private Integer splitPriority;
+
+    /**
+     * 是否重点养护品种
+     */
+    private Boolean isKeyMaintenance;
+
+    /**
+     * 是否进口药品
+     */
+    private Boolean isImported;
 }

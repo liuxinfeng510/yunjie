@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.StockOut;
 import com.yf.entity.StockOutDetail;
+import com.yf.entity.Store;
 import com.yf.exception.BusinessException;
 import com.yf.mapper.StockOutDetailMapper;
 import com.yf.mapper.StockOutMapper;
@@ -23,6 +24,7 @@ public class StockOutService {
     private final StockOutMapper stockOutMapper;
     private final StockOutDetailMapper stockOutDetailMapper;
     private final InventoryService inventoryService;
+    private final StoreService storeService;
 
     public Page<StockOut> page(Long storeId, String type, String status, int pageNum, int pageSize) {
         Page<StockOut> page = new Page<>(pageNum, pageSize);
@@ -57,6 +59,19 @@ public class StockOutService {
         String orderNo = "SO" + DateUtil.format(LocalDateTime.now(), "yyyyMMddHHmmss");
         stockOut.setOrderNo(orderNo);
         stockOut.setStatus("待审核");
+
+        // 自动填充门店ID
+        if (stockOut.getStoreId() == null) {
+            Store hq = storeService.getHeadquarter();
+            if (hq != null) {
+                stockOut.setStoreId(hq.getId());
+            } else {
+                java.util.List<Store> stores = storeService.listAll();
+                if (!stores.isEmpty()) {
+                    stockOut.setStoreId(stores.get(0).getId());
+                }
+            }
+        }
 
         BigDecimal totalAmount = details.stream()
                 .map(StockOutDetail::getAmount)

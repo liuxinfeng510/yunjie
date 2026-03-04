@@ -137,6 +137,33 @@ public class MemberService {
     }
 
     /**
+     * 获取所有会员列表(用于下拉选择)
+     */
+    public List<Member> list() {
+        LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Member::getStatus, "正常")
+               .orderByDesc(Member::getCreatedAt);
+        return memberMapper.selectList(wrapper);
+    }
+    
+    /**
+     * 搜索会员(用于自动补全)
+     */
+    public List<Member> search(String keyword) {
+        LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(Member::getStatus, "正常");
+        if (StringUtils.hasText(keyword)) {
+            wrapper.and(w -> w.like(Member::getName, keyword)
+                    .or().like(Member::getPinyin, keyword)
+                    .or().like(Member::getPinyinShort, keyword)
+                    .or().like(Member::getPhone, keyword));
+        }
+        wrapper.orderByDesc(Member::getCreatedAt)
+               .last("LIMIT 20");
+        return memberMapper.selectList(wrapper);
+    }
+
+    /**
      * 根据微信OpenID查找会员
      */
     public Member findByWechatOpenid(String openid) {

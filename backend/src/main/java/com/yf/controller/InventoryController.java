@@ -30,14 +30,19 @@ public class InventoryController {
      * 分页查询库存
      */
     @GetMapping("/page")
-    public ApiResponse<Page<Inventory>> page(
+    public ApiResponse page(
             @RequestParam(required = false) Long storeId,
             @RequestParam(required = false) Long drugId,
             @RequestParam(required = false) Boolean lowStock,
-            @RequestParam(defaultValue = "1") int pageNum,
-            @RequestParam(defaultValue = "10") int pageSize) {
+            @RequestParam(required = false) Integer pageNum,
+            @RequestParam(required = false) Integer current,
+            @RequestParam(required = false) Integer pageSize,
+            @RequestParam(required = false) Integer size) {
         
-        Page<Inventory> result = inventoryService.page(storeId, drugId, lowStock, pageNum, pageSize);
+        int pn = current != null ? current : (pageNum != null ? pageNum : 1);
+        int ps = size != null ? size : (pageSize != null ? pageSize : 10);
+        
+        var result = inventoryService.page(storeId, drugId, lowStock, pn, ps);
         return ApiResponse.success(result);
     }
     

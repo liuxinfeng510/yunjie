@@ -25,7 +25,7 @@ public class SaleOrderDetail extends BaseEntity {
     private Long drugId;
     
     /**
-     * 药品名称
+     * 商品名称
      */
     private String drugName;
     

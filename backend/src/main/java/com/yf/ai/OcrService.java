@@ -69,7 +69,7 @@ public class OcrService {
         
         返回JSON格式：
         {
-            "drugName": "药品名称",
+            "drugName": "商品名称",
             "genericName": "通用名",
             "specification": "规格",
             "manufacturer": "生产厂家",

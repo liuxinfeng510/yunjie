@@ -136,7 +136,7 @@
             <div class="frequent-drugs" v-if="healthAnalysis.frequentDrugs?.length">
               <div class="section-title">常购药品TOP5</div>
               <el-table :data="healthAnalysis.frequentDrugs" size="small" stripe>
-                <el-table-column prop="drugName" label="药品名称" />
+                <el-table-column prop="drugName" label="商品名称" />
                 <el-table-column prop="purchaseCount" label="购买次数" width="80" />
               </el-table>
             </div>

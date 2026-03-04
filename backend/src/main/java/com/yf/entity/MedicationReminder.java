@@ -32,7 +32,7 @@ public class MedicationReminder extends BaseEntity {
     private Long drugId;
     
     /**
-     * 药品名称（冗余）
+     * 商品名称（冗余）
      */
     private String drugName;
     

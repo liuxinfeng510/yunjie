@@ -36,6 +36,11 @@ public class RefundOrder extends BaseEntity {
     private BigDecimal refundAmount;
     
     /**
+     * 退货类型：full-整单退 partial-单品退
+     */
+    private String refundType;
+    
+    /**
      * 退款原因
      */
     private String reason;

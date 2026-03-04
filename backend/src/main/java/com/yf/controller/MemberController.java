@@ -35,6 +35,24 @@ public class MemberController {
     }
     
     /**
+     * 获取会员列表(用于下拉选择)
+     */
+    @GetMapping("/list")
+    public ApiResponse<java.util.List<Member>> list() {
+        java.util.List<Member> result = memberService.list();
+        return ApiResponse.success(result);
+    }
+    
+    /**
+     * 搜索会员(用于自动补全)
+     */
+    @GetMapping("/search")
+    public ApiResponse<java.util.List<Member>> search(@RequestParam String keyword) {
+        java.util.List<Member> result = memberService.search(keyword);
+        return ApiResponse.success(result);
+    }
+    
+    /**
      * 根据ID获取会员
      */
     @GetMapping("/{id}")
@@ -46,7 +64,7 @@ public class MemberController {
     /**
      * 创建会员
      */
-    @PostMapping("/")
+    @PostMapping
     public ApiResponse<Member> create(@RequestBody Member member) {
         Member result = memberService.create(member);
         return ApiResponse.success(result);

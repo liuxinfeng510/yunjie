@@ -182,7 +182,7 @@ public class AiController {
         String patientCondition = request.get("patientCondition");
 
         if (drugName == null || drugName.isEmpty()) {
-            return ApiResponse.error("请提供药品名称");
+            return ApiResponse.error("请提供商品名称");
         }
 
         String guidance = salesAssistantService.getMedicationGuidance(drugName, patientCondition);

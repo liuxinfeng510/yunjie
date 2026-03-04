@@ -13,7 +13,7 @@
         style="width: 100%; margin-top: 16px"
         border
       >
-        <el-table-column prop="drugName" label="药品名称" min-width="150" />
+        <el-table-column prop="drugName" label="商品名称" min-width="150" />
         <el-table-column prop="maintenanceType" label="养护类型" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="getMaintenanceTypeTag(row.maintenanceType)">
@@ -21,18 +21,30 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="appearanceCheck" label="外观检查" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="result" label="综合结果" width="100" align="center">
+        <el-table-column prop="appearanceCheck" label="外观检查" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.result === 'NORMAL' ? 'success' : 'danger'">
-              {{ row.result === 'NORMAL' ? '正常' : '异常' }}
+            <el-tag :type="row.appearanceCheck === 'NORMAL' ? 'success' : 'danger'" v-if="row.appearanceCheck">
+              {{ row.appearanceCheck === 'NORMAL' ? '正常' : '异常' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="handleMeasure" label="处理措施" min-width="150" show-overflow-tooltip />
+        <el-table-column prop="packageCheck" label="包装检查" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.packageCheck === 'NORMAL' ? 'success' : 'danger'" v-if="row.packageCheck">
+              {{ row.packageCheck === 'NORMAL' ? '正常' : '异常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="overallResult" label="综合结果" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.overallResult === 'NORMAL' ? 'success' : 'danger'">
+              {{ row.overallResult === 'NORMAL' ? '正常' : '异常' }}
+            </el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column prop="treatment" label="处理措施" min-width="150" show-overflow-tooltip />
         <el-table-column prop="maintenanceTime" label="养护时间" width="160" />
-        <el-table-column prop="nextMaintenanceTime" label="下次养护时间" width="160" />
-        <el-table-column prop="maintainerName" label="养护人" width="100" />
+        <el-table-column prop="nextMaintenance" label="下次养护日期" width="130" />
       </el-table>
 
       <!-- 分页 -->
@@ -61,8 +73,8 @@
         :rules="formRules"
         label-width="120px"
       >
-        <el-form-item label="药品名称" prop="drugName">
-          <el-input v-model="formData.drugName" placeholder="请输入药品名称" />
+        <el-form-item label="商品名称" prop="drugName">
+          <el-input v-model="formData.drugName" placeholder="请输入商品名称" />
         </el-form-item>
         <el-form-item label="养护类型" prop="maintenanceType">
           <el-select v-model="formData.maintenanceType" placeholder="请选择" style="width: 100%">
@@ -72,53 +84,58 @@
           </el-select>
         </el-form-item>
         <el-form-item label="外观检查" prop="appearanceCheck">
-          <el-input
-            v-model="formData.appearanceCheck"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入外观检查情况"
-          />
-        </el-form-item>
-        <el-form-item label="包装检查" prop="packageCheck">
-          <el-input
-            v-model="formData.packageCheck"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入包装检查情况"
-          />
-        </el-form-item>
-        <el-form-item label="温湿度情况" prop="tempHumidity">
-          <el-input v-model="formData.tempHumidity" placeholder="例如：温度20℃，湿度60%" />
-        </el-form-item>
-        <el-form-item label="综合结果" prop="result">
-          <el-radio-group v-model="formData.result">
+          <el-radio-group v-model="formData.appearanceCheck">
             <el-radio value="NORMAL">正常</el-radio>
             <el-radio value="ABNORMAL">异常</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item label="处理措施" prop="handleMeasure">
+        <el-form-item label="包装检查" prop="packageCheck">
+          <el-radio-group v-model="formData.packageCheck">
+            <el-radio value="NORMAL">正常</el-radio>
+            <el-radio value="ABNORMAL">异常</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="效期检查" prop="expireCheck">
+          <el-radio-group v-model="formData.expireCheck">
+            <el-radio value="NORMAL">正常</el-radio>
+            <el-radio value="ABNORMAL">异常</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="储存条件检查" prop="storageCheck">
+          <el-radio-group v-model="formData.storageCheck">
+            <el-radio value="NORMAL">正常</el-radio>
+            <el-radio value="ABNORMAL">异常</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item label="综合结果" prop="overallResult">
+          <el-radio-group v-model="formData.overallResult">
+            <el-radio value="NORMAL">正常</el-radio>
+            <el-radio value="ABNORMAL">异常</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="formData.overallResult === 'ABNORMAL'" label="异常描述" prop="abnormalDesc">
           <el-input
-            v-model="formData.handleMeasure"
+            v-model="formData.abnormalDesc"
+            type="textarea"
+            :rows="3"
+            placeholder="请描述异常情况"
+          />
+        </el-form-item>
+        <el-form-item label="处理措施" prop="treatment">
+          <el-input
+            v-model="formData.treatment"
             type="textarea"
             :rows="3"
             placeholder="如有异常，请输入处理措施"
           />
         </el-form-item>
-        <el-form-item label="下次养护时间" prop="nextMaintenanceTime">
+        <el-form-item label="下次养护日期" prop="nextMaintenance">
           <el-date-picker
-            v-model="formData.nextMaintenanceTime"
-            type="datetime"
-            placeholder="请选择下次养护时间"
-            value-format="YYYY-MM-DD HH:mm:ss"
+            v-model="formData.nextMaintenance"
+            type="date"
+            placeholder="请选择下次养护日期"
+            value-format="YYYY-MM-DD"
             style="width: 100%"
-          />
-        </el-form-item>
-        <el-form-item label="备注" prop="remark">
-          <el-input
-            v-model="formData.remark"
-            type="textarea"
-            :rows="2"
-            placeholder="请输入备注信息"
           />
         </el-form-item>
       </el-form>
@@ -153,21 +170,25 @@ const formRef = ref(null)
 const formData = reactive({
   drugName: '',
   maintenanceType: 'DAILY',
-  appearanceCheck: '',
-  packageCheck: '',
-  tempHumidity: '',
-  result: 'NORMAL',
-  handleMeasure: '',
-  nextMaintenanceTime: '',
-  remark: ''
+  appearanceCheck: 'NORMAL',
+  packageCheck: 'NORMAL',
+  expireCheck: 'NORMAL',
+  storageCheck: 'NORMAL',
+  overallResult: 'NORMAL',
+  abnormalDesc: '',
+  treatment: '',
+  nextMaintenance: ''
 })
 
 const formRules = {
-  drugName: [{ required: true, message: '请输入药品名称', trigger: 'blur' }],
+  drugName: [{ required: true, message: '请输入商品名称', trigger: 'blur' }],
   maintenanceType: [{ required: true, message: '请选择养护类型', trigger: 'change' }],
-  appearanceCheck: [{ required: true, message: '请输入外观检查情况', trigger: 'blur' }],
-  result: [{ required: true, message: '请选择综合结果', trigger: 'change' }],
-  nextMaintenanceTime: [{ required: true, message: '请选择下次养护时间', trigger: 'change' }]
+  appearanceCheck: [{ required: true, message: '请选择外观检查结果', trigger: 'change' }],
+  packageCheck: [{ required: true, message: '请选择包装检查结果', trigger: 'change' }],
+  expireCheck: [{ required: true, message: '请选择效期检查结果', trigger: 'change' }],
+  storageCheck: [{ required: true, message: '请选择储存条件检查结果', trigger: 'change' }],
+  overallResult: [{ required: true, message: '请选择综合结果', trigger: 'change' }],
+  nextMaintenance: [{ required: true, message: '请选择下次养护日期', trigger: 'change' }]
 }
 
 // 养护类型映射
@@ -190,8 +211,8 @@ const handleSearch = async () => {
   try {
     loading.value = true
     const params = {
-      current: pagination.current,
-      size: pagination.size
+      pageNum: pagination.current,
+      pageSize: pagination.size
     }
 
     const res = await getMaintenances(params)
@@ -211,13 +232,14 @@ const handleAdd = () => {
   Object.assign(formData, {
     drugName: '',
     maintenanceType: 'DAILY',
-    appearanceCheck: '',
-    packageCheck: '',
-    tempHumidity: '',
-    result: 'NORMAL',
-    handleMeasure: '',
-    nextMaintenanceTime: '',
-    remark: ''
+    appearanceCheck: 'NORMAL',
+    packageCheck: 'NORMAL',
+    expireCheck: 'NORMAL',
+    storageCheck: 'NORMAL',
+    overallResult: 'NORMAL',
+    abnormalDesc: '',
+    treatment: '',
+    nextMaintenance: ''
   })
   dialogVisible.value = true
 }

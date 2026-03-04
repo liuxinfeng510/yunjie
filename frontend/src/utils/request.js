@@ -29,11 +29,14 @@ request.interceptors.response.use(
     return res
   },
   error => {
-    if (error.response?.status === 401) {
+    const status = error.response?.status
+    if (status === 401 || status === 403) {
       localStorage.removeItem('token')
       router.push('/login')
+      ElMessage.error('登录已过期，请重新登录')
+    } else {
+      ElMessage.error(error.message || '网络错误')
     }
-    ElMessage.error(error.message || '网络错误')
     return Promise.reject(error)
   }
 )

@@ -47,7 +47,7 @@ public class SalesAssistantService {
             "analysis": "症状/需求分析",
             "recommendations": [
                 {
-                    "drugName": "药品名称",
+                    "drugName": "商品名称",
                     "type": "西药/中成药/中药饮片",
                     "reason": "推荐理由",
                     "dosage": "用法用量",

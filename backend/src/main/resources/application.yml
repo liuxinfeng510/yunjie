@@ -8,8 +8,8 @@ spring:
     name: yf-pharmacy
   datasource:
     url: jdbc:mysql://localhost:3306/yf_pharmacy?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
-    username: root
-    password: root
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
     hikari:
       maximum-pool-size: 30
@@ -53,7 +53,7 @@ mybatis-plus:
 
 # JWT Configuration
 jwt:
-  secret: yf-pharmacy-jwt-secret-key-2024-must-be-at-least-256-bits-long-for-hs256
+  secret: ${JWT_SECRET:please-set-jwt-secret-in-env}
   expiration: 86400000  # 24 hours
 
 # File Upload
@@ -63,7 +63,7 @@ file:
 # AI Configuration (Alibaba Cloud DashScope)
 ai:
   dashscope:
-    api-key: ${DASHSCOPE_API_KEY:sk-demo-key}
+    api-key: ${DASHSCOPE_API_KEY:please-set-api-key-in-env}
     text-model: qwen-max
     vision-model: qwen-vl-max
     timeout: 60000

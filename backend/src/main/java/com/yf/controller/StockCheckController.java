@@ -44,7 +44,7 @@ public class StockCheckController {
         return ApiResponse.success(result);
     }
 
-    @PostMapping("/")
+    @PostMapping
     public ApiResponse<StockCheck> create(@RequestBody StockCheck stockCheck) {
         StockCheck created = stockCheckService.create(stockCheck);
         return ApiResponse.success(created);

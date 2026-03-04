@@ -39,6 +39,27 @@ public class SupplierController {
     }
 
     /**
+     * 搜索供应商（名称/拼音模糊匹配）
+     *
+     * @param keyword 搜索关键字
+     * @return 匹配的供应商列表
+     */
+    @GetMapping("/search")
+    public ApiResponse search(@RequestParam(required = false) String keyword) {
+        java.util.List<Supplier> list = supplierService.search(keyword);
+        return ApiResponse.success(list);
+    }
+
+    /**
+     * 获取供应商列表(用于下拉选择)
+     */
+    @GetMapping("/list")
+    public ApiResponse<java.util.List<Supplier>> list() {
+        java.util.List<Supplier> result = supplierService.list();
+        return ApiResponse.success(result);
+    }
+
+    /**
      * 根据ID查询供应商
      *
      * @param id 供应商ID

@@ -2,87 +2,144 @@
   <el-container class="layout">
     <el-aside :width="isCollapsed ? '64px' : '220px'" class="layout-sidebar" :class="{ collapsed: isCollapsed }">
       <div class="logo">
-        <span v-if="!isCollapsed">YF 药房管理</span>
-        <span v-else>YF</span>
+        <span v-if="!isCollapsed">{{ isSuperAdmin ? '云界管理平台' : '云界智慧药房' }}</span>
+        <span v-else>云界</span>
       </div>
       <el-menu :default-active="activeMenu" :collapse="isCollapsed" :collapse-transition="false"
         background-color="#304156" text-color="#bfcbd9" active-text-color="#409eff" router>
-        <el-menu-item index="/dashboard">
-          <el-icon><HomeFilled /></el-icon>
-          <template #title>首页</template>
-        </el-menu-item>
+        
+        <!-- 超级管理员菜单 (tenant_id=0) -->
+        <template v-if="isSuperAdmin">
+          <el-menu-item index="/admin/dashboard">
+            <el-icon><DataBoard /></el-icon>
+            <template #title>控制台</template>
+          </el-menu-item>
 
-        <el-sub-menu index="drug-menu">
-          <template #title>
-            <el-icon><FirstAidKit /></el-icon>
-            <span>药品管理</span>
-          </template>
-          <el-menu-item index="/drug">药品列表</el-menu-item>
-          <el-menu-item index="/drug/category">药品分类</el-menu-item>
-          <el-menu-item index="/drug/supplier">供应商管理</el-menu-item>
-        </el-sub-menu>
+          <el-sub-menu index="tenant-menu">
+            <template #title>
+              <el-icon><OfficeBuilding /></el-icon>
+              <span>租户管理</span>
+            </template>
+            <el-menu-item index="/admin/tenant">租户列表</el-menu-item>
+            <el-menu-item index="/admin/tenant/create">开通租户</el-menu-item>
+          </el-sub-menu>
 
-        <el-sub-menu index="herb-menu">
-          <template #title>
-            <el-icon><Cherry /></el-icon>
-            <span>中药管理</span>
-          </template>
-          <el-menu-item index="/herb">中药饮片</el-menu-item>
-          <el-menu-item index="/herb/cabinet">斗谱管理</el-menu-item>
-          <el-menu-item index="/herb/gsp">中药GSP</el-menu-item>
-          <el-menu-item index="/herb/prescription">中药处方</el-menu-item>
-        </el-sub-menu>
+          <el-sub-menu index="platform-menu">
+            <template #title>
+              <el-icon><Monitor /></el-icon>
+              <span>平台运营</span>
+            </template>
+            <el-menu-item index="/admin/audit-log">操作日志</el-menu-item>
+            <el-menu-item index="/admin/statistics">统计分析</el-menu-item>
+          </el-sub-menu>
 
-        <el-sub-menu index="inventory-menu">
-          <template #title>
-            <el-icon><Box /></el-icon>
-            <span>库存管理</span>
-          </template>
-          <el-menu-item index="/inventory">库存查询</el-menu-item>
-          <el-menu-item index="/inventory/stock-in">入库管理</el-menu-item>
-          <el-menu-item index="/inventory/stock-out">出库管理</el-menu-item>
-          <el-menu-item index="/inventory/stock-check">盘点管理</el-menu-item>
-          <el-menu-item index="/inventory/warnings">库存预警</el-menu-item>
-        </el-sub-menu>
+          <el-sub-menu index="knowledge-menu">
+            <template #title>
+              <el-icon><Reading /></el-icon>
+              <span>知识库</span>
+            </template>
+            <el-menu-item index="/admin/drug-knowledge">药品知识</el-menu-item>
+            <el-menu-item index="/admin/herb-knowledge">中药知识</el-menu-item>
+            <el-menu-item index="/admin/incompatibility">配伍禁忌</el-menu-item>
+          </el-sub-menu>
+        </template>
 
-        <el-sub-menu index="sale-menu">
-          <template #title>
-            <el-icon><ShoppingCart /></el-icon>
-            <span>销售管理</span>
-          </template>
-          <el-menu-item index="/sale/pos">收银台</el-menu-item>
-          <el-menu-item index="/sale/orders">销售记录</el-menu-item>
-          <el-menu-item index="/sale/refund">退货管理</el-menu-item>
-        </el-sub-menu>
+        <!-- 租户用户菜单 (tenant_id>0) -->
+        <template v-else>
+          <el-menu-item index="/dashboard">
+            <el-icon><HomeFilled /></el-icon>
+            <template #title>首页</template>
+          </el-menu-item>
 
-        <el-sub-menu index="member-menu">
-          <template #title>
-            <el-icon><User /></el-icon>
-            <span>会员管理</span>
-          </template>
-          <el-menu-item index="/member">会员列表</el-menu-item>
-          <el-menu-item index="/member/level">等级管理</el-menu-item>
-        </el-sub-menu>
+          <el-sub-menu index="drug-menu">
+            <template #title>
+              <el-icon><FirstAidKit /></el-icon>
+              <span>药品管理</span>
+            </template>
+            <el-menu-item index="/drug">药品列表</el-menu-item>
+            <el-menu-item index="/drug/category">药品分类</el-menu-item>
+            <el-menu-item index="/drug/supplier">供应商管理</el-menu-item>
+          </el-sub-menu>
 
-        <el-sub-menu index="gsp-menu">
-          <template #title>
-            <el-icon><Document /></el-icon>
-            <span>GSP合规</span>
-          </template>
-          <el-menu-item index="/gsp/acceptance">验收记录</el-menu-item>
-          <el-menu-item index="/gsp/maintenance">养护记录</el-menu-item>
-          <el-menu-item index="/gsp/temperature">温湿度监控</el-menu-item>
-        </el-sub-menu>
+          <el-sub-menu index="herb-menu">
+            <template #title>
+              <el-icon><Cherry /></el-icon>
+              <span>中药管理</span>
+            </template>
+            <el-menu-item index="/herb">中药饮片</el-menu-item>
+            <el-menu-item index="/herb/cabinet">斗谱管理</el-menu-item>
+            <el-menu-item index="/herb/gsp">中药GSP</el-menu-item>
+            <el-menu-item index="/herb/prescription">中药处方</el-menu-item>
+            <el-menu-item index="/herb/incompatibility">配伍禁忌</el-menu-item>
+            <el-menu-item index="/herb/scale-device">电子秤设备</el-menu-item>
+          </el-sub-menu>
 
-        <el-sub-menu index="system-menu">
-          <template #title>
-            <el-icon><Setting /></el-icon>
-            <span>系统管理</span>
-          </template>
-          <el-menu-item index="/system/config">系统配置</el-menu-item>
-          <el-menu-item index="/system/store">门店管理</el-menu-item>
-          <el-menu-item index="/system/migration">数据迁移</el-menu-item>
-        </el-sub-menu>
+          <el-sub-menu index="inventory-menu">
+            <template #title>
+              <el-icon><Box /></el-icon>
+              <span>库存管理</span>
+            </template>
+            <el-menu-item index="/inventory">库存查询</el-menu-item>
+            <el-menu-item index="/inventory/stock-in">入库管理</el-menu-item>
+            <el-menu-item index="/inventory/stock-out">出库管理</el-menu-item>
+            <el-menu-item index="/inventory/stock-check">盘点管理</el-menu-item>
+            <el-menu-item index="/inventory/batch">批次管理</el-menu-item>
+            <el-menu-item index="/inventory/trace-code">追溯码管理</el-menu-item>
+            <el-menu-item index="/inventory/warnings">库存预警</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="sale-menu">
+            <template #title>
+              <el-icon><ShoppingCart /></el-icon>
+              <span>销售管理</span>
+            </template>
+            <el-menu-item index="/sale/pos">收银台</el-menu-item>
+            <el-menu-item index="/sale/orders">销售记录</el-menu-item>
+            <el-menu-item index="/sale/refund">退货管理</el-menu-item>
+            <el-menu-item index="/sale/out-of-stock">缺货登记</el-menu-item>
+            <el-menu-item index="/sale/promotion">促销管理</el-menu-item>
+            <el-menu-item index="/sale/combination">组合推荐</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="member-menu">
+            <template #title>
+              <el-icon><User /></el-icon>
+              <span>会员管理</span>
+            </template>
+            <el-menu-item index="/member">会员列表</el-menu-item>
+            <el-menu-item index="/member/level">等级管理</el-menu-item>
+            <el-menu-item index="/member/health">健康画像</el-menu-item>
+            <el-menu-item index="/member/chronic-disease">慢病管理</el-menu-item>
+            <el-menu-item index="/member/reminder">用药提醒</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="gsp-menu">
+            <template #title>
+              <el-icon><Document /></el-icon>
+              <span>GSP合规</span>
+            </template>
+            <el-menu-item index="/gsp/acceptance">验收记录</el-menu-item>
+            <el-menu-item index="/gsp/maintenance">养护记录</el-menu-item>
+            <el-menu-item index="/gsp/temperature">温湿度监控</el-menu-item>
+            <el-menu-item index="/gsp/defective">不良品管理</el-menu-item>
+            <el-menu-item index="/gsp/destruction">药品销毁</el-menu-item>
+            <el-menu-item index="/gsp/training">员工培训</el-menu-item>
+            <el-menu-item index="/gsp/report">GSP报表</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="system-menu">
+            <template #title>
+              <el-icon><Setting /></el-icon>
+              <span>系统设置</span>
+            </template>
+            <el-menu-item index="/system/config">系统配置</el-menu-item>
+            <el-menu-item index="/system/store">门店管理</el-menu-item>
+            <el-menu-item index="/system/staff">员工管理</el-menu-item>
+            <el-menu-item index="/system/role">角色权限</el-menu-item>
+            <el-menu-item index="/system/quick-setup">快速部署</el-menu-item>
+            <el-menu-item index="/system/migration">数据迁移</el-menu-item>
+          </el-sub-menu>
+        </template>
       </el-menu>
     </el-aside>
 
@@ -132,6 +189,8 @@ const authStore = useAuthStore()
 const isCollapsed = ref(false)
 const user = computed(() => authStore.user)
 const activeMenu = computed(() => route.path)
+// 超级管理员判断 (tenant_id=0)
+const isSuperAdmin = computed(() => user.value?.tenantId === 0)
 
 function handleCommand(cmd) {
   if (cmd === 'logout') {

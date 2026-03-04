@@ -3,6 +3,7 @@ package com.yf.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.DrugAcceptance;
+import com.yf.entity.Store;
 import com.yf.mapper.DrugAcceptanceMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -18,6 +19,7 @@ import java.time.LocalDateTime;
 public class DrugAcceptanceService {
     
     private final DrugAcceptanceMapper drugAcceptanceMapper;
+    private final StoreService storeService;
     
     /**
      * 分页查询验收记录
@@ -51,6 +53,18 @@ public class DrugAcceptanceService {
     @Transactional(rollbackFor = Exception.class)
     public DrugAcceptance create(DrugAcceptance acceptance) {
         acceptance.setAcceptTime(LocalDateTime.now());
+        // 自动填充门店ID
+        if (acceptance.getStoreId() == null) {
+            Store hq = storeService.getHeadquarter();
+            if (hq != null) {
+                acceptance.setStoreId(hq.getId());
+            } else {
+                java.util.List<Store> stores = storeService.listAll();
+                if (!stores.isEmpty()) {
+                    acceptance.setStoreId(stores.get(0).getId());
+                }
+            }
+        }
         drugAcceptanceMapper.insert(acceptance);
         return acceptance;
     }

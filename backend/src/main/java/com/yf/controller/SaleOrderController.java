@@ -60,7 +60,7 @@ public class SaleOrderController {
     /**
      * 创建销售订单
      */
-    @PostMapping("/")
+    @PostMapping
     public ApiResponse<SaleOrder> create(@RequestBody SaleOrderRequest request) {
         SaleOrder saleOrder = saleOrderService.create(request.getSaleOrder(), request.getDetails());
         return ApiResponse.success(saleOrder);

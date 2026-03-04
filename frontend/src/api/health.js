@@ -207,6 +207,9 @@ export function pageReminders(params) {
   })
 }
 
+// 别名
+export const getReminderPage = pageReminders
+
 /**
  * 获取提醒统计
  */
@@ -214,5 +217,15 @@ export function getReminderStatistics() {
   return request({
     url: '/medication-reminder/statistics',
     method: 'get'
+  })
+}
+
+/**
+ * 删除用药提醒
+ */
+export function deleteReminder(id) {
+  return request({
+    url: `/medication-reminder/${id}`,
+    method: 'delete'
   })
 }

@@ -69,3 +69,25 @@ export function createPrescription(data) {
 export function updatePrescriptionStatus(id, status) {
   return request.put(`/herb-prescription/${id}/status`, null, { params: { status } })
 }
+
+// 获取中药列表
+export function getHerbList() {
+  return request.get('/herb/list')
+}
+
+// ========== 配伍禁忌 ==========
+export function getIncompatibilityPage(params) {
+  return request.get('/herb-incompatibility/page', { params })
+}
+export function createIncompatibility(data) {
+  return request.post('/herb-incompatibility', data)
+}
+export function updateIncompatibility(id, data) {
+  return request.put(`/herb-incompatibility/${id}`, data)
+}
+export function deleteIncompatibility(id) {
+  return request.delete(`/herb-incompatibility/${id}`)
+}
+export function checkHerbIncompatibility(herb1Id, herb2Id) {
+  return request.get('/herb-incompatibility/check', { params: { herb1Id, herb2Id } })
+}

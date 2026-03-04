@@ -109,3 +109,57 @@ export function executeMigration(id) {
 export function deleteMigration(id) {
   return request.delete(`/migration/${id}`)
 }
+
+// ========== 租户管理 ==========
+
+/** 分页查询租户 */
+export function getTenantPage(params) {
+  return request.get('/tenant/page', { params })
+}
+
+/** 获取所有租户列表 */
+export function getTenantList() {
+  return request.get('/tenant/list')
+}
+
+/** 获取租户详情 */
+export function getTenant(id) {
+  return request.get(`/tenant/${id}`)
+}
+
+/** 创建租户 */
+export function createTenant(data) {
+  return request.post('/tenant', data)
+}
+
+/** 更新租户 */
+export function updateTenant(id, data) {
+  return request.put(`/tenant/${id}`, data)
+}
+
+/** 删除租户 */
+export function deleteTenant(id) {
+  return request.delete(`/tenant/${id}`)
+}
+
+/** 启用租户 */
+export function enableTenant(id) {
+  return request.post(`/tenant/${id}/enable`)
+}
+
+/** 禁用租户 */
+export function disableTenant(id) {
+  return request.post(`/tenant/${id}/disable`)
+}
+
+// ========== 审计日志 ==========
+
+/** 分页查询审计日志 */
+export function getAuditLogPage(params) {
+  return request.get('/audit-log/page', { params })
+}
+
+/** 获取审计日志详情 */
+export function getAuditLog(id) {
+  return request.get(`/audit-log/${id}`)
+}

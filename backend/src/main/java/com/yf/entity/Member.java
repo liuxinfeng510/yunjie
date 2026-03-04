@@ -26,6 +26,16 @@ public class Member extends BaseEntity {
     private String name;
     
     /**
+     * 姓名拼音全拼
+     */
+    private String pinyin;
+    
+    /**
+     * 姓名拼音简拼
+     */
+    private String pinyinShort;
+    
+    /**
      * 手机号
      */
     private String phone;

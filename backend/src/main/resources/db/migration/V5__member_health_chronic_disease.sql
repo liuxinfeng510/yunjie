@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS medication_reminder (
     member_id BIGINT NOT NULL COMMENT '会员ID',
     disease_record_id BIGINT COMMENT '关联慢病记录ID',
     drug_id BIGINT COMMENT '药品ID',
-    drug_name VARCHAR(200) NOT NULL COMMENT '药品名称',
+    drug_name VARCHAR(200) NOT NULL COMMENT '商品名称',
     specification VARCHAR(100) COMMENT '规格',
     dosage VARCHAR(50) COMMENT '单次用量',
     usage_method VARCHAR(20) COMMENT '用法',
