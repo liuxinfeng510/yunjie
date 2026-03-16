@@ -41,6 +41,7 @@
             <el-menu-item index="/admin/drug-knowledge">药品知识</el-menu-item>
             <el-menu-item index="/admin/herb-knowledge">中药知识</el-menu-item>
             <el-menu-item index="/admin/incompatibility">配伍禁忌</el-menu-item>
+            <el-menu-item index="/admin/manufacturer">生产企业</el-menu-item>
           </el-sub-menu>
         </template>
 
@@ -86,6 +87,7 @@
             <el-menu-item index="/inventory/batch">批次管理</el-menu-item>
             <el-menu-item index="/inventory/trace-code">追溯码管理</el-menu-item>
             <el-menu-item index="/inventory/warnings">库存预警</el-menu-item>
+            <el-menu-item index="/inventory/expiry">近效期预警</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="sale-menu">
@@ -111,6 +113,15 @@
             <el-menu-item index="/member/health">健康画像</el-menu-item>
             <el-menu-item index="/member/chronic-disease">慢病管理</el-menu-item>
             <el-menu-item index="/member/reminder">用药提醒</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="first-marketing-menu">
+            <template #title>
+              <el-icon><Stamp /></el-icon>
+              <span>首营管理</span>
+            </template>
+            <el-menu-item index="/first-marketing/supplier">首营企业</el-menu-item>
+            <el-menu-item index="/first-marketing/drug">首营品种</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="gsp-menu">

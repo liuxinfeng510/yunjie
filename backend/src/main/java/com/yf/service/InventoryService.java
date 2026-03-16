@@ -100,10 +100,12 @@ public class InventoryService {
                         map.put("drugName", drug.getGenericName());
                         map.put("specification", drug.getSpecification());
                         map.put("manufacturer", drug.getManufacturer());
+                        map.put("approvalNo", drug.getApprovalNo());
                     } else {
                         map.put("drugName", "");
                         map.put("specification", "");
                         map.put("manufacturer", "");
+                        map.put("approvalNo", "");
                     }
                     
                     // 门店信息

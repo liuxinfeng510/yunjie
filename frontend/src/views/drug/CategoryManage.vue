@@ -23,7 +23,10 @@
               >
                 <template #default="{ node, data }">
                   <div class="custom-tree-node">
-                    <span class="node-label">{{ node.label }}</span>
+                    <span class="node-label">
+                      {{ node.label }}
+                      <el-tag v-if="data.isSystem" size="small" type="info" style="margin-left: 6px;">系统</el-tag>
+                    </span>
                     <span class="node-actions">
                       <el-button
                         link
@@ -35,6 +38,7 @@
                         添加子分类
                       </el-button>
                       <el-button
+                        v-if="!data.isSystem"
                         link
                         type="danger"
                         size="small"
@@ -71,6 +75,7 @@
                   :data="categoryTree"
                   placeholder="请选择上级分类(留空为根分类)"
                   clearable
+                  :disabled="isSystemCategory"
                   style="width: 100%;"
                   :props="{ label: 'name', value: 'id' }"
                   check-strictly
@@ -83,6 +88,7 @@
                   placeholder="请输入分类名称"
                   maxlength="50"
                   show-word-limit
+                  :disabled="isSystemCategory"
                 />
               </el-form-item>
 
@@ -93,6 +99,7 @@
                   :max="9999"
                   controls-position="right"
                   style="width: 100%;"
+                  :disabled="isSystemCategory"
                 />
               </el-form-item>
 
@@ -104,10 +111,11 @@
                   placeholder="请输入备注信息"
                   maxlength="200"
                   show-word-limit
+                  :disabled="isSystemCategory"
                 />
               </el-form-item>
 
-              <el-form-item>
+              <el-form-item v-if="!isSystemCategory">
                 <el-button type="primary" @click="handleSubmit" :loading="submitLoading">
                   {{ formData.id ? '更新' : '保存' }}
                 </el-button>
@@ -122,7 +130,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Delete } from '@element-plus/icons-vue'
 import {
@@ -147,8 +155,12 @@ const formData = reactive({
   parentId: null,
   name: '',
   sortOrder: 0,
-  remark: ''
+  remark: '',
+  isSystem: false
 })
+
+// 当前选中的是否为系统分类（只读模式）
+const isSystemCategory = computed(() => formData.isSystem === true)
 
 // 表单验证规则
 const formRules = {
@@ -178,12 +190,13 @@ const loadCategoryTree = async () => {
 
 // 树节点点击
 const handleNodeClick = (data) => {
-  formTitle.value = '编辑分类'
   formData.id = data.id
   formData.parentId = data.parentId || null
   formData.name = data.name
   formData.sortOrder = data.sortOrder || 0
   formData.remark = data.remark || ''
+  formData.isSystem = data.isSystem || false
+  formTitle.value = data.isSystem ? '查看系统分类' : '编辑分类'
 }
 
 // 添加根分类
@@ -202,6 +215,10 @@ const handleAddChild = (data) => {
 
 // 删除分类
 const handleDelete = (data) => {
+  if (data.isSystem) {
+    ElMessage.warning('系统预置分类不允许删除')
+    return
+  }
   // 检查是否有子分类
   if (data.children && data.children.length > 0) {
     ElMessage.warning('该分类下有子分类,无法删除')
@@ -279,6 +296,7 @@ const resetFormData = () => {
   formData.name = ''
   formData.sortOrder = 0
   formData.remark = ''
+  formData.isSystem = false
 }
 
 // 初始化

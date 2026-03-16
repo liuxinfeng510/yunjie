@@ -65,6 +65,8 @@
         :row-class-name="getRowClassName"
       >
         <el-table-column prop="drugName" label="商品名称" width="200" />
+        <el-table-column prop="manufacturer" label="生产厂家" width="180" show-overflow-tooltip />
+        <el-table-column prop="approvalNo" label="批准文号" width="180" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格" width="150" />
         <el-table-column prop="batchNo" label="批号" width="150" />
         <el-table-column label="数量" width="120" align="right">

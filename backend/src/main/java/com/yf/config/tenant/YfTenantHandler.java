@@ -22,7 +22,9 @@ public class YfTenantHandler implements TenantLineHandler {
             "medical_insurance_catalog",
             "combined_medication",
             "data_dictionary",
-            "audit_log"
+            "audit_log",
+            "drug_category",
+            "drug_manufacturer"
     );
 
     @Override

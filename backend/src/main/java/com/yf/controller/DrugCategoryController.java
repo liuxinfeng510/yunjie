@@ -30,6 +30,15 @@ public class DrugCategoryController {
     }
 
     /**
+     * 初始化中药饮片分类（幂等）
+     */
+    @PostMapping("/init-herb")
+    public ApiResponse initHerbCategories() {
+        drugCategoryService.initHerbCategories();
+        return ApiResponse.success();
+    }
+
+    /**
      * 根据ID查询分类
      *
      * @param id 分类ID
@@ -52,11 +61,15 @@ public class DrugCategoryController {
      */
     @PostMapping
     public ApiResponse create(@RequestBody DrugCategory category) {
-        int result = drugCategoryService.create(category);
-        if (result > 0) {
-            return ApiResponse.success();
+        try {
+            int result = drugCategoryService.create(category);
+            if (result > 0) {
+                return ApiResponse.success();
+            }
+            return ApiResponse.error("创建失败");
+        } catch (RuntimeException e) {
+            return ApiResponse.error(e.getMessage());
         }
-        return ApiResponse.error("创建失败");
     }
 
     /**
@@ -69,11 +82,15 @@ public class DrugCategoryController {
     @PutMapping("/{id}")
     public ApiResponse update(@PathVariable Long id, @RequestBody DrugCategory category) {
         category.setId(id);
-        int result = drugCategoryService.update(category);
-        if (result > 0) {
-            return ApiResponse.success();
+        try {
+            int result = drugCategoryService.update(category);
+            if (result > 0) {
+                return ApiResponse.success();
+            }
+            return ApiResponse.error("更新失败");
+        } catch (RuntimeException e) {
+            return ApiResponse.error(e.getMessage());
         }
-        return ApiResponse.error("更新失败");
     }
 
     /**

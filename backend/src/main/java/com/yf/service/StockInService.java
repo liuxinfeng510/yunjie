@@ -32,6 +32,7 @@ public class StockInService {
     private final InventoryService inventoryService;
     private final StoreService storeService;
     private final SupplierService supplierService;
+    private final DrugTraceCodeService drugTraceCodeService;
     
     /**
      * 分页查询入库单
@@ -114,6 +115,13 @@ public class StockInService {
         for (StockInDetail detail : details) {
             detail.setStockInId(stockIn.getId());
             stockInDetailMapper.insert(detail);
+            // 保存追溯码
+            if (detail.getTraceCodes() != null && !detail.getTraceCodes().isEmpty()) {
+                drugTraceCodeService.batchCreateForDetail(
+                        stockIn.getId(), detail.getId(), detail.getDrugId(),
+                        detail.getBatchNo(), detail.getProduceDate(), detail.getExpireDate(),
+                        stockIn.getSupplierId(), detail.getTraceCodes());
+            }
         }
         
         return stockIn;
@@ -145,7 +153,8 @@ public class StockInService {
 
         stockInMapper.updateById(stockIn);
 
-        // 删除旧明细
+        // 删除旧明细和追溯码
+        drugTraceCodeService.deleteByStockInId(id);
         LambdaQueryWrapper<StockInDetail> delWrapper = new LambdaQueryWrapper<>();
         delWrapper.eq(StockInDetail::getStockInId, id);
         stockInDetailMapper.delete(delWrapper);
@@ -155,6 +164,13 @@ public class StockInService {
             detail.setId(null);
             detail.setStockInId(id);
             stockInDetailMapper.insert(detail);
+            // 保存追溯码
+            if (detail.getTraceCodes() != null && !detail.getTraceCodes().isEmpty()) {
+                drugTraceCodeService.batchCreateForDetail(
+                        id, detail.getId(), detail.getDrugId(),
+                        detail.getBatchNo(), detail.getProduceDate(), detail.getExpireDate(),
+                        stockIn.getSupplierId(), detail.getTraceCodes());
+            }
         }
 
         return stockIn;
@@ -234,5 +250,27 @@ public class StockInService {
         
         stockIn.setStatus("已入库");
         stockInMapper.updateById(stockIn);
+        
+        // 激活追溯码 pending -> in_stock
+        drugTraceCodeService.activateByStockInId(id);
+    }
+
+    /**
+     * 获取入库单明细（含追溯码）
+     */
+    public List<StockInDetail> getDetailsWithTraceCodes(Long stockInId) {
+        List<StockInDetail> details = getDetails(stockInId);
+        if (!details.isEmpty()) {
+            List<Long> detailIds = details.stream()
+                    .map(StockInDetail::getId)
+                    .collect(java.util.stream.Collectors.toList());
+            java.util.Map<Long, List<String>> codesMap = drugTraceCodeService.getCodesByDetailIds(detailIds);
+            for (StockInDetail detail : details) {
+                List<String> codes = codesMap.getOrDefault(detail.getId(), java.util.Collections.emptyList());
+                detail.setTraceCodes(codes);
+                detail.setTraceCodeCount(codes.size());
+            }
+        }
+        return details;
     }
 }

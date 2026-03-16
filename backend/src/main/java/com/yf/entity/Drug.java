@@ -169,4 +169,35 @@ public class Drug extends BaseEntity {
      * 是否进口药品
      */
     private Boolean isImported;
+
+    // ========== 中药饮片特有字段 ==========
+
+    /** 是否中药饮片 */
+    private Boolean isHerb;
+    /** 饮片类别(解表药/清热药/补虚药等) */
+    private String herbType;
+    /** 别名 */
+    private String alias;
+    /** 性(寒/热/温/凉/平) */
+    private String nature;
+    /** 味(酸/苦/甘/辛/咸) */
+    private String flavor;
+    /** 归经 */
+    private String meridian;
+    /** 功效 */
+    private String efficacy;
+    /** 产地 */
+    private String origin;
+    /** 炮制方法 */
+    private String processingMethod;
+    /** 最小用量(g) */
+    private BigDecimal dosageMin;
+    /** 最大用量(g) */
+    private BigDecimal dosageMax;
+    /** 是否有毒 */
+    private Boolean isToxic;
+    /** 毒性等级(大毒/有毒/小毒) */
+    private String toxicLevel;
+    /** 是否贵细药材 */
+    private Boolean isPrecious;
 }

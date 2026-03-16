@@ -69,6 +69,12 @@ const routes = [
         component: () => import('@/views/admin/Incompatibility.vue'),
         meta: { title: '配伍禁忌', requireSuperAdmin: true }
       },
+      {
+        path: 'admin/manufacturer',
+        name: 'AdminManufacturer',
+        component: () => import('@/views/admin/ManufacturerManage.vue'),
+        meta: { title: '生产企业', requireSuperAdmin: true }
+      },
       // 药品管理
       {
         path: 'drug',
@@ -247,6 +253,19 @@ const routes = [
         name: 'MedicationReminder',
         component: () => import('@/views/member/MedicationReminder.vue'),
         meta: { title: '用药提醒' }
+      },
+      // 首营管理
+      {
+        path: 'first-marketing/supplier',
+        name: 'FirstMarketingSupplier',
+        component: () => import('@/views/first-marketing/FirstMarketingSupplierList.vue'),
+        meta: { title: '首营企业' }
+      },
+      {
+        path: 'first-marketing/drug',
+        name: 'FirstMarketingDrug',
+        component: () => import('@/views/first-marketing/FirstMarketingDrugList.vue'),
+        meta: { title: '首营品种' }
       },
       // GSP合规
       {

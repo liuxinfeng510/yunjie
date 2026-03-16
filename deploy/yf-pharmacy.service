@@ -1,0 +1,16 @@
+[Unit]
+Description=YF Pharmacy Management System
+After=network.target mysql.service redis.service
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/yf-pharmacy
+ExecStart=/usr/bin/java -jar -Xms256m -Xmx512m -Dspring.profiles.active=prod /opt/yf-pharmacy/yf-pharmacy.jar
+ExecStop=/bin/kill -TERM $MAINPID
+Restart=on-failure
+RestartSec=10
+EnvironmentFile=/opt/yf-pharmacy/.env
+
+[Install]
+WantedBy=multi-user.target

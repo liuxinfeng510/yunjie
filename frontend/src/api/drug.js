@@ -46,6 +46,9 @@ export function createManufacturer(data) {
 export function updateManufacturer(id, data) {
   return request.put(`/drug-manufacturer/${id}`, data)
 }
+export function deleteManufacturer(id) {
+  return request.delete(`/drug-manufacturer/${id}`)
+}
 export function getOrCreateManufacturer(name) {
   return request.post('/drug-manufacturer/get-or-create', null, { params: { name } })
 }
@@ -67,6 +70,9 @@ export function deleteBarcode(id) {
 // 分类
 export function getCategoryTree() {
   return request.get('/drug-category/tree')
+}
+export function initHerbCategories() {
+  return request.post('/drug-category/init-herb')
 }
 export function createCategory(data) {
   return request.post('/drug-category', data)

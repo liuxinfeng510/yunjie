@@ -1,11 +1,13 @@
 package com.yf.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 
 /**
  * 入库单明细实体
@@ -59,4 +61,16 @@ public class StockInDetail extends BaseEntity {
      * 金额
      */
     private BigDecimal amount;
+
+    /**
+     * 追溯码列表（非数据库字段，API传输用）
+     */
+    @TableField(exist = false)
+    private List<String> traceCodes;
+
+    /**
+     * 追溯码数量（非数据库字段，查询回显用）
+     */
+    @TableField(exist = false)
+    private Integer traceCodeCount;
 }

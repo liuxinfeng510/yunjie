@@ -12,7 +12,9 @@ import org.springframework.util.StringUtils;
 import java.util.List;
 
 /**
- * 生产企业服务
+ * 生产企业服务（全局共享，不隔离租户）
+ * drug_manufacturer 已加入 IGNORE_TABLES，所有查询返回全局数据
+ * 写操作显式设置 tenant_id=0
  */
 @Service
 @RequiredArgsConstructor
@@ -40,21 +42,22 @@ public class DrugManufacturerService {
     }
 
     /**
-     * 按名称查找或创建（用于导入/自动保存）
+     * 按名称查找或创建（全局共享，任意租户可触发自动创建）
      */
     public DrugManufacturer getOrCreate(String name) {
         if (!StringUtils.hasText(name)) {
             return null;
         }
-        // 先查找
+        // 先查找（全局查询，不带租户过滤）
         LambdaQueryWrapper<DrugManufacturer> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(DrugManufacturer::getName, name.trim());
         DrugManufacturer existing = manufacturerMapper.selectOne(wrapper);
         if (existing != null) {
             return existing;
         }
-        // 创建新记录
+        // 创建新的全局记录
         DrugManufacturer manufacturer = new DrugManufacturer();
+        manufacturer.setTenantId(0L);
         manufacturer.setName(name.trim());
         manufacturer.setPinyin(PinyinUtil.getPinyin(name, ""));
         manufacturer.setPinyinShort(PinyinUtil.getFirstLetter(name, ""));
@@ -80,13 +83,20 @@ public class DrugManufacturerService {
     }
 
     /**
-     * 新增
+     * 新增（全局记录）
      */
     public DrugManufacturer create(DrugManufacturer manufacturer) {
+        // 检查重复名称
         if (StringUtils.hasText(manufacturer.getName())) {
+            LambdaQueryWrapper<DrugManufacturer> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(DrugManufacturer::getName, manufacturer.getName().trim());
+            if (manufacturerMapper.selectCount(wrapper) > 0) {
+                throw new RuntimeException("该企业名称已存在");
+            }
             manufacturer.setPinyin(PinyinUtil.getPinyin(manufacturer.getName(), ""));
             manufacturer.setPinyinShort(PinyinUtil.getFirstLetter(manufacturer.getName(), ""));
         }
+        manufacturer.setTenantId(0L);
         manufacturer.setStatus("active");
         manufacturerMapper.insert(manufacturer);
         return manufacturer;
@@ -97,9 +107,17 @@ public class DrugManufacturerService {
      */
     public void update(DrugManufacturer manufacturer) {
         if (StringUtils.hasText(manufacturer.getName())) {
+            // 检查是否与其他记录重名
+            LambdaQueryWrapper<DrugManufacturer> wrapper = new LambdaQueryWrapper<>();
+            wrapper.eq(DrugManufacturer::getName, manufacturer.getName().trim())
+                   .ne(DrugManufacturer::getId, manufacturer.getId());
+            if (manufacturerMapper.selectCount(wrapper) > 0) {
+                throw new RuntimeException("该企业名称已存在");
+            }
             manufacturer.setPinyin(PinyinUtil.getPinyin(manufacturer.getName(), ""));
             manufacturer.setPinyinShort(PinyinUtil.getFirstLetter(manufacturer.getName(), ""));
         }
+        manufacturer.setTenantId(0L);
         manufacturerMapper.updateById(manufacturer);
     }
 

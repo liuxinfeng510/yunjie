@@ -47,7 +47,7 @@ public class StockInController {
     @GetMapping("/{id}")
     public ApiResponse<Map<String, Object>> getById(@PathVariable Long id) {
         StockIn stockIn = stockInService.getById(id);
-        List<StockInDetail> details = stockInService.getDetails(id);
+        List<StockInDetail> details = stockInService.getDetailsWithTraceCodes(id);
         
         Map<String, Object> result = new HashMap<>();
         result.put("stockIn", stockIn);

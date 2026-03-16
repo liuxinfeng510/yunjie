@@ -31,6 +31,7 @@ public class AiController {
     private final OcrService ocrService;
     private final SalesAssistantService salesAssistantService;
     private final VisionCheckoutService visionCheckoutService;
+    private final FirstMarketingOcrService firstMarketingOcrService;
     private final AiRecognitionLogMapper aiRecognitionLogMapper;
     private final ObjectMapper objectMapper;
 
@@ -202,6 +203,44 @@ public class AiController {
 
         AiRecognitionResult result = visionCheckoutService.recognizeCheckoutItems(imageBase64);
         saveLog("vision_checkout", "image", "[base64]", result);
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 首营企业证照AI识别
+     * 接收多个文件路径和类型，逐个识别并合并结果
+     */
+    @PostMapping("/first-marketing/recognize")
+    @Auditable(module = "AI", operation = "首营企业证照识别")
+    @SuppressWarnings("unchecked")
+    public ApiResponse<Map<String, Object>> recognizeFirstMarketing(@RequestBody Map<String, Object> request) {
+        List<Map<String, String>> files = (List<Map<String, String>>) request.get("files");
+        if (files == null || files.isEmpty()) {
+            return ApiResponse.error("请提供待识别的文件列表");
+        }
+
+        Map<String, Object> result = firstMarketingOcrService.recognizeDocuments(files);
+
+        // 记录审计日志
+        try {
+            AiRecognitionLog aiLog = new AiRecognitionLog();
+            aiLog.setTenantId(TenantContext.getTenantId());
+            aiLog.setRecognitionType("first_marketing_ocr");
+            aiLog.setInputType("files");
+            aiLog.setInputData(objectMapper.writeValueAsString(files));
+            aiLog.setResultData(objectMapper.writeValueAsString(result));
+            aiLog.setConfidence(BigDecimal.valueOf(85.0));
+            aiLog.setDuration((Long) result.get("duration"));
+            aiLog.setCreatedAt(LocalDateTime.now());
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            if (auth != null && auth.getPrincipal() instanceof Long userId) {
+                aiLog.setOperatorId(userId);
+            }
+            aiRecognitionLogMapper.insert(aiLog);
+        } catch (Exception e) {
+            log.error("保存AI识别日志失败", e);
+        }
+
         return ApiResponse.success(result);
     }
 

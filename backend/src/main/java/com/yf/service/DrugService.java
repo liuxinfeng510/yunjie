@@ -14,6 +14,8 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -42,7 +44,7 @@ public class DrugService {
     public Page<Drug> page(Page<Drug> page, String name, Long categoryId, String otcType, String status) {
         LambdaQueryWrapper<Drug> wrapper = new LambdaQueryWrapper<>();
 
-        // 多字段模糊查询（含批准文号）
+        // 多字段模糊查询（含批准文号、别名）
         if (StringUtils.hasText(name)) {
             wrapper.and(w -> w
                     .like(Drug::getGenericName, name)
@@ -51,6 +53,8 @@ public class DrugService {
                     .or().like(Drug::getPinyinShort, name)
                     .or().like(Drug::getBarcode, name)
                     .or().like(Drug::getApprovalNo, name)
+                    .or().like(Drug::getAlias, name)
+                    .or().like(Drug::getDrugCode, name)
             );
         }
 
@@ -86,12 +90,35 @@ public class DrugService {
     }
 
     /**
+     * 自动生成药品编码: YP + yyyyMMdd + 4位序号
+     */
+    public String generateDrugCode() {
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String prefix = "YP" + dateStr;
+        LambdaQueryWrapper<Drug> wrapper = new LambdaQueryWrapper<>();
+        wrapper.likeRight(Drug::getDrugCode, prefix)
+               .orderByDesc(Drug::getDrugCode)
+               .last("LIMIT 1");
+        Drug last = drugMapper.selectOne(wrapper);
+        int seq = 1;
+        if (last != null && last.getDrugCode() != null && last.getDrugCode().length() >= 14) {
+            try {
+                seq = Integer.parseInt(last.getDrugCode().substring(10)) + 1;
+            } catch (NumberFormatException ignored) {}
+        }
+        return prefix + String.format("%04d", seq);
+    }
+
+    /**
      * 创建药品
      *
      * @param drug 药品信息
      * @return 创建成功的记录数
      */
     public int create(Drug drug) {
+        if (!StringUtils.hasText(drug.getDrugCode())) {
+            drug.setDrugCode(generateDrugCode());
+        }
         return drugMapper.insert(drug);
     }
 
@@ -104,6 +131,9 @@ public class DrugService {
      */
     @Transactional
     public Drug createWithBarcodes(Drug drug, List<DrugBarcode> barcodes) {
+        if (!StringUtils.hasText(drug.getDrugCode())) {
+            drug.setDrugCode(generateDrugCode());
+        }
         drugMapper.insert(drug);
         Long tenantId = TenantContext.getTenantId();
         if (barcodes != null && !barcodes.isEmpty()) {
@@ -188,6 +218,7 @@ public class DrugService {
                 .map(drug -> {
                     Map<String, Object> map = new java.util.HashMap<>();
                     map.put("id", drug.getId());
+                    map.put("drugCode", drug.getDrugCode());
                     map.put("genericName", drug.getGenericName());
                     map.put("tradeName", drug.getTradeName());
                     map.put("specification", drug.getSpecification());
@@ -200,7 +231,21 @@ public class DrugService {
                     map.put("barcode", drug.getBarcode());
                     map.put("purchasePrice", drug.getPurchasePrice());
                     map.put("approvalNo", drug.getApprovalNo());
+                    map.put("dosageForm", drug.getDosageForm());
+                    map.put("status", drug.getStatus());
                     map.put("stock", finalStockMap.getOrDefault(drug.getId(), BigDecimal.ZERO));
+                    // 中药饮片字段
+                    map.put("isHerb", drug.getIsHerb());
+                    map.put("alias", drug.getAlias());
+                    map.put("nature", drug.getNature());
+                    map.put("flavor", drug.getFlavor());
+                    map.put("meridian", drug.getMeridian());
+                    map.put("efficacy", drug.getEfficacy());
+                    map.put("origin", drug.getOrigin());
+                    map.put("dosageMin", drug.getDosageMin());
+                    map.put("dosageMax", drug.getDosageMax());
+                    map.put("isToxic", drug.getIsToxic());
+                    map.put("toxicLevel", drug.getToxicLevel());
                     return map;
                 })
                 .collect(Collectors.toList());

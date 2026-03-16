@@ -2,25 +2,18 @@
 -- V3: 系统配置表 + 数据迁移任务表
 -- =====================================================
 
--- 系统配置表
-CREATE TABLE IF NOT EXISTS sys_config (
-    id BIGINT AUTO_INCREMENT PRIMARY KEY,
-    tenant_id BIGINT NOT NULL DEFAULT 0,
-    config_group VARCHAR(50) NOT NULL COMMENT '配置分组',
-    config_key VARCHAR(100) NOT NULL COMMENT '配置键',
-    config_value TEXT COMMENT '配置值',
-    value_type VARCHAR(20) NOT NULL DEFAULT 'string' COMMENT '值类型: string/number/boolean/json',
-    description VARCHAR(255) COMMENT '配置说明',
-    sort_order INT DEFAULT 0 COMMENT '排序号',
-    created_by BIGINT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_by BIGINT,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    deleted INT DEFAULT 0,
-    INDEX idx_config_tenant (tenant_id),
-    INDEX idx_config_group (config_group),
-    UNIQUE INDEX uk_config_key_tenant (tenant_id, config_key, deleted)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='系统配置表';
+-- 升级 sys_config 表（V1 已建基础结构，此处补充字段）
+ALTER TABLE sys_config
+    ADD COLUMN config_group VARCHAR(50) NOT NULL DEFAULT '' COMMENT '配置分组' AFTER tenant_id,
+    ADD COLUMN value_type VARCHAR(20) NOT NULL DEFAULT 'string' COMMENT '值类型: string/number/boolean/json' AFTER config_value,
+    ADD COLUMN sort_order INT DEFAULT 0 COMMENT '排序号' AFTER description,
+    MODIFY COLUMN description VARCHAR(255) COMMENT '配置说明',
+    MODIFY COLUMN tenant_id BIGINT NOT NULL DEFAULT 0;
+
+ALTER TABLE sys_config ADD INDEX idx_config_tenant (tenant_id);
+ALTER TABLE sys_config ADD INDEX idx_config_group (config_group);
+ALTER TABLE sys_config DROP INDEX uk_key;
+ALTER TABLE sys_config ADD UNIQUE INDEX uk_config_key_tenant (tenant_id, config_key, deleted);
 
 -- 数据迁移任务表
 CREATE TABLE IF NOT EXISTS data_migration_task (

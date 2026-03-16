@@ -10,7 +10,11 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * 药品追溯码服务
@@ -150,5 +154,68 @@ public class DrugTraceCodeService {
     public static class TraceInfo {
         private DrugTraceCode traceCode;
         // 可扩展更多关联信息
+    }
+
+    // ========== 入库单追溯码方法 ==========
+
+    /**
+     * 为入库明细行批量创建追溯码
+     */
+    public void batchCreateForDetail(Long stockInId, Long stockInDetailId, Long drugId,
+                                      String batchNo, LocalDate produceDate, LocalDate expireDate,
+                                      Long supplierId, List<String> codes) {
+        if (codes == null || codes.isEmpty()) return;
+        for (String code : codes) {
+            DrugTraceCode tc = new DrugTraceCode();
+            tc.setTraceCode(code.trim());
+            tc.setDrugId(drugId);
+            tc.setBatchNo(batchNo);
+            tc.setProduceDate(produceDate);
+            tc.setExpireDate(expireDate);
+            tc.setSupplierId(supplierId);
+            tc.setPurchaseOrderId(stockInId);
+            tc.setStockInDetailId(stockInDetailId);
+            tc.setStatus("pending");
+            tc.setTraceTime(LocalDateTime.now());
+            traceCodeMapper.insert(tc);
+        }
+    }
+
+    /**
+     * 删除入库单关联的所有追溯码
+     */
+    public void deleteByStockInId(Long stockInId) {
+        LambdaQueryWrapper<DrugTraceCode> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(DrugTraceCode::getPurchaseOrderId, stockInId);
+        traceCodeMapper.delete(wrapper);
+    }
+
+    /**
+     * 入库完成时激活追溯码 pending -> in_stock
+     */
+    public void activateByStockInId(Long stockInId) {
+        LambdaQueryWrapper<DrugTraceCode> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(DrugTraceCode::getPurchaseOrderId, stockInId)
+               .eq(DrugTraceCode::getStatus, "pending");
+        DrugTraceCode update = new DrugTraceCode();
+        update.setStatus("in_stock");
+        traceCodeMapper.update(update, wrapper);
+    }
+
+    /**
+     * 批量查询明细行的追溯码列表（按 stockInDetailId 分组）
+     */
+    public Map<Long, List<String>> getCodesByDetailIds(List<Long> detailIds) {
+        if (detailIds == null || detailIds.isEmpty()) {
+            return new HashMap<>();
+        }
+        LambdaQueryWrapper<DrugTraceCode> wrapper = new LambdaQueryWrapper<>();
+        wrapper.in(DrugTraceCode::getStockInDetailId, detailIds)
+               .orderByAsc(DrugTraceCode::getId);
+        List<DrugTraceCode> list = traceCodeMapper.selectList(wrapper);
+        return list.stream().collect(java.util.stream.Collectors.groupingBy(
+                DrugTraceCode::getStockInDetailId,
+                java.util.stream.Collectors.mapping(DrugTraceCode::getTraceCode, java.util.stream.Collectors.toList())
+        ));
     }
 }

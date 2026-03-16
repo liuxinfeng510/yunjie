@@ -56,6 +56,11 @@ public class DrugTraceCode extends BaseEntity {
     private Long purchaseOrderId;
 
     /**
+     * 入库明细行ID
+     */
+    private Long stockInDetailId;
+
+    /**
      * 销售订单ID
      */
     private Long saleOrderId;

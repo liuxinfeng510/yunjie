@@ -1,0 +1,35 @@
+server:
+  port: 8081
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/yf_pharmacy?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false
+    username: ${DB_USERNAME:root}
+    password: ${DB_PASSWORD}
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 2
+      password: ${REDIS_PASSWORD:}
+
+  flyway:
+    enabled: true
+
+mybatis-plus:
+  configuration:
+    log-impl: org.apache.ibatis.logging.nologging.NoLoggingImpl
+
+jwt:
+  secret: ${JWT_SECRET}
+
+file:
+  upload-dir: /opt/yf-pharmacy/uploads
+
+ai:
+  dashscope:
+    api-key: ${DASHSCOPE_API_KEY:please-set-api-key-in-env}

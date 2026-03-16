@@ -44,15 +44,17 @@
 
       <!-- 表格 -->
       <el-table :data="tableData" v-loading="loading" border stripe>
-        <el-table-column prop="code" label="药品编码" width="120" />
+        <el-table-column prop="drugCode" label="药品编码" width="160" />
         <el-table-column prop="genericName" label="通用名" width="150" show-overflow-tooltip />
         <el-table-column prop="tradeName" label="商品名" width="150" show-overflow-tooltip />
+        <el-table-column prop="alias" label="别名" width="120" show-overflow-tooltip />
         <el-table-column prop="specification" label="规格" width="120" />
         <el-table-column prop="dosageForm" label="剂型" width="100" />
         <el-table-column prop="manufacturer" label="生产企业" width="180" show-overflow-tooltip />
-        <el-table-column prop="otcType" label="OTC类型" width="100">
+        <el-table-column label="类型" width="100">
           <template #default="{ row }">
-            <el-tag v-if="row.otcType === 'OTC_A'" type="success">甲类OTC</el-tag>
+            <el-tag v-if="row.isHerb" type="success">中药饮片</el-tag>
+            <el-tag v-else-if="row.otcType === 'OTC_A'">甲类OTC</el-tag>
             <el-tag v-else-if="row.otcType === 'OTC_B'" type="warning">乙类OTC</el-tag>
             <el-tag v-else type="danger">处方药</el-tag>
           </template>
@@ -97,7 +99,20 @@
       @close="handleDialogClose"
     >
       <el-form :model="formData" :rules="formRules" ref="formRef" label-width="100px">
-        <!-- 第一行：分类、通用名、商品名 -->
+        <!-- 药品编码 -->
+        <el-row :gutter="16">
+          <el-col :span="8">
+            <el-form-item label="药品编码">
+              <el-input
+                v-model="formData.drugCode"
+                :placeholder="formData.id ? '' : '保存后自动生成'"
+                disabled
+              />
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 分类、通用名、商品名/别名 -->
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="药品分类" prop="categoryId">
@@ -117,90 +132,189 @@
             </el-form-item>
           </el-col>
           <el-col :span="8">
-            <el-form-item label="商品名" prop="tradeName">
+            <el-form-item v-if="isHerbMode" label="别名">
+              <el-input v-model="formData.alias" placeholder="多个别名用逗号分隔" />
+            </el-form-item>
+            <el-form-item v-else label="商品名">
               <el-input v-model="formData.tradeName" placeholder="请输入商品名" />
             </el-form-item>
           </el-col>
         </el-row>
 
-        <!-- 第二行：批准文号、剂型、规格 -->
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="批准文号" prop="approvalNo">
-              <el-input 
-                v-model="formData.approvalNo" 
-                placeholder="请输入批准文号"
-                class="ime-disabled"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="剂型" prop="dosageForm">
-              <DictSelect
-                v-model="formData.dosageForm"
-                dict-type="dosage_form"
-                placeholder="请选择剂型"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="规格" prop="specification">
-              <el-input v-model="formData.specification" placeholder="如:0.5g*24粒" @blur="parseSplitRatio" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <!-- ===== 中药饮片特有字段 ===== -->
+        <template v-if="isHerbMode">
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="饮片类别">
+                <el-select v-model="formData.herbType" placeholder="请选择饮片类别" style="width: 100%;">
+                  <el-option v-for="t in herbTypeOptions" :key="t" :label="t" :value="t" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="性">
+                <el-select v-model="formData.nature" placeholder="请选择药性" style="width: 100%;">
+                  <el-option v-for="n in ['寒','热','温','凉','平']" :key="n" :label="n" :value="n" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="味">
+                <el-input v-model="formData.flavor" placeholder="如: 苦,甘" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="归经">
+                <el-input v-model="formData.meridian" placeholder="如: 肺,胃" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="产地">
+                <el-input v-model="formData.origin" placeholder="请输入产地" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="炮制方法">
+                <el-input v-model="formData.processingMethod" placeholder="如: 蜜炙,酒炒" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-form-item label="功效">
+            <el-input v-model="formData.efficacy" type="textarea" :rows="2" placeholder="请输入功效描述" />
+          </el-form-item>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="单位" prop="unit">
+                <DictSelect
+                  v-model="formData.unit"
+                  dict-type="drug_unit"
+                  placeholder="请选择单位"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="6">
+              <el-form-item label="最小用量(g)">
+                <el-input-number v-model="formData.dosageMin" :precision="1" :min="0" style="width: 100%;" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="最大用量(g)">
+                <el-input-number v-model="formData.dosageMax" :precision="1" :min="0" style="width: 100%;" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="有毒">
+                <el-switch v-model="formData.isToxic" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6" v-if="formData.isToxic">
+              <el-form-item label="毒性等级">
+                <el-select v-model="formData.toxicLevel" placeholder="请选择" style="width: 100%;">
+                  <el-option label="小毒" value="小毒" />
+                  <el-option label="有毒" value="有毒" />
+                  <el-option label="大毒" value="大毒" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="贵细药材">
+                <el-switch v-model="formData.isPrecious" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="储存条件">
+                <DictSelect
+                  v-model="formData.storageCondition"
+                  dict-type="storage_condition"
+                  placeholder="请选择储存条件"
+                />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </template>
 
-        <!-- 第三行：单位、储存条件、OTC类型 -->
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="单位" prop="unit">
-              <DictSelect
-                v-model="formData.unit"
-                dict-type="drug_unit"
-                placeholder="请选择单位"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="储存条件" prop="storageCondition">
-              <DictSelect
-                v-model="formData.storageCondition"
-                dict-type="storage_condition"
-                placeholder="请选择储存条件"
-              />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="OTC类型" prop="otcType">
-              <el-select v-model="formData.otcType" placeholder="请选择OTC类型" style="width: 100%;">
-                <el-option label="甲类OTC" value="OTC_A" />
-                <el-option label="乙类OTC" value="OTC_B" />
-                <el-option label="处方药" value="RX" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <!-- ===== 西药/成药字段 ===== -->
+        <template v-else>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="批准文号" prop="approvalNo">
+                <el-input 
+                  v-model="formData.approvalNo" 
+                  placeholder="请输入批准文号"
+                  class="ime-disabled"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="剂型" prop="dosageForm">
+                <DictSelect
+                  v-model="formData.dosageForm"
+                  dict-type="dosage_form"
+                  placeholder="请选择剂型"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="规格" prop="specification">
+                <el-input v-model="formData.specification" placeholder="如:0.5g*24粒" @blur="parseSplitRatio" />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <!-- 第四行：生产企业 -->
-        <el-form-item label="生产企业" prop="manufacturer">
-          <ManufacturerSelect
-            v-model="formData.manufacturer"
-            v-model:manufacturer-id="formData.manufacturerId"
-            placeholder="输入企业名称搜索"
-          />
-        </el-form-item>
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="单位" prop="unit">
+                <DictSelect
+                  v-model="formData.unit"
+                  dict-type="drug_unit"
+                  placeholder="请选择单位"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="储存条件" prop="storageCondition">
+                <DictSelect
+                  v-model="formData.storageCondition"
+                  dict-type="storage_condition"
+                  placeholder="请选择储存条件"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="OTC类型" prop="otcType">
+                <el-select v-model="formData.otcType" placeholder="请选择OTC类型" style="width: 100%;">
+                  <el-option label="甲类OTC" value="OTC_A" />
+                  <el-option label="乙类OTC" value="OTC_B" />
+                  <el-option label="处方药" value="RX" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <!-- 上市许可持有人 -->
-        <el-form-item label="上市许可持有人">
-          <el-input v-model="formData.marketingAuthHolder" placeholder="请输入上市许可持有人" />
-        </el-form-item>
+          <el-form-item label="生产企业" prop="manufacturer">
+            <ManufacturerSelect
+              v-model="formData.manufacturer"
+              v-model:manufacturer-id="formData.manufacturerId"
+              placeholder="输入企业名称搜索"
+            />
+          </el-form-item>
 
-        <!-- 第五行：条形码 -->
-        <el-form-item label="条形码">
-          <BarcodeInput v-model="barcodes" :drug-id="formData.id" />
-        </el-form-item>
+          <el-form-item label="上市许可持有人">
+            <el-input v-model="formData.marketingAuthHolder" placeholder="请输入上市许可持有人" />
+          </el-form-item>
 
-        <!-- 第六行：价格 -->
+          <el-form-item label="条形码">
+            <BarcodeInput v-model="barcodes" :drug-id="formData.id" />
+          </el-form-item>
+        </template>
+
+        <!-- 价格（通用） -->
         <el-row :gutter="16">
           <el-col :span="8">
             <el-form-item label="进货价" prop="purchasePrice">
@@ -219,48 +333,49 @@
           </el-col>
         </el-row>
 
-        <!-- 第七行：医保类型、拆零 -->
-        <el-row :gutter="16">
-          <el-col :span="8">
-            <el-form-item label="医保类型" prop="medicalInsurance">
-              <el-select v-model="formData.medicalInsurance" placeholder="请选择医保类型" style="width: 100%;">
-                <el-option label="甲类" value="A" />
-                <el-option label="乙类" value="B" />
-                <el-option label="丙类(自费)" value="C" />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="允许拆零">
-              <el-switch v-model="formData.isSplit" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8" v-if="formData.isSplit">
-            <el-form-item label="拆零比例">
-              <el-input-number v-model="formData.splitRatio" :min="1" :max="1000" style="width: 100%;" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+        <!-- 西药/成药附加属性 -->
+        <template v-if="!isHerbMode">
+          <el-row :gutter="16">
+            <el-col :span="8">
+              <el-form-item label="医保类型" prop="medicalInsurance">
+                <el-select v-model="formData.medicalInsurance" placeholder="请选择医保类型" style="width: 100%;">
+                  <el-option label="甲类" value="A" />
+                  <el-option label="乙类" value="B" />
+                  <el-option label="丙类(自费)" value="C" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="允许拆零">
+                <el-switch v-model="formData.isSplit" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8" v-if="formData.isSplit">
+              <el-form-item label="拆零比例">
+                <el-input-number v-model="formData.splitRatio" :min="1" :max="1000" style="width: 100%;" />
+              </el-form-item>
+            </el-col>
+          </el-row>
 
-        <!-- 第八行：其他属性 -->
-        <el-row :gutter="16">
-          <el-col :span="8" v-if="formData.isSplit">
-            <el-form-item label="拆零优先">
-              <el-switch v-model="splitPrioritySwitch" />
-              <span class="form-hint">优先销售拆零商品</span>
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="重点养护">
-              <el-switch v-model="formData.isKeyMaintenance" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="8">
-            <el-form-item label="进口药品">
-              <el-switch v-model="formData.isImported" />
-            </el-form-item>
-          </el-col>
-        </el-row>
+          <el-row :gutter="16">
+            <el-col :span="8" v-if="formData.isSplit">
+              <el-form-item label="拆零优先">
+                <el-switch v-model="splitPrioritySwitch" />
+                <span class="form-hint">优先销售拆零商品</span>
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="重点养护">
+                <el-switch v-model="formData.isKeyMaintenance" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="8">
+              <el-form-item label="进口药品">
+                <el-switch v-model="formData.isImported" />
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </template>
       </el-form>
 
       <template #footer>
@@ -272,7 +387,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, watch, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import DictSelect from '@/components/DictSelect.vue'
@@ -284,7 +399,8 @@ import {
   createDrug,
   updateDrug,
   deleteDrug,
-  getCategoryTree
+  getCategoryTree,
+  initHerbCategories
 } from '@/api/drug'
 
 // 搜索表单
@@ -297,6 +413,11 @@ const searchForm = reactive({
 
 // 分类树
 const categoryTree = ref([])
+const herbCategoryIds = ref(new Set())
+
+// 饮片类别选项
+const herbTypeOptions = ['解表药', '清热药', '补虚药', '理气药', '活血化瘀药',
+  '止血药', '化痰止咳平喘药', '安神药', '平肝息风药', '开窍药', '其他']
 
 // 表格数据
 const tableData = ref([])
@@ -321,6 +442,7 @@ const barcodes = ref([])
 // 表单数据
 const formData = reactive({
   id: null,
+  drugCode: '',
   categoryId: null,
   genericName: '',
   tradeName: '',
@@ -341,7 +463,21 @@ const formData = reactive({
   splitRatio: 1,
   splitPriority: 0,
   isKeyMaintenance: false,
-  isImported: false
+  isImported: false,
+  // 中药饮片字段
+  herbType: '',
+  alias: '',
+  nature: '',
+  flavor: '',
+  meridian: '',
+  efficacy: '',
+  origin: '',
+  processingMethod: '',
+  dosageMin: null,
+  dosageMax: null,
+  isToxic: false,
+  toxicLevel: '',
+  isPrecious: false
 })
 
 // 拆零优先开关
@@ -350,17 +486,38 @@ const splitPrioritySwitch = computed({
   set: (val) => { formData.splitPriority = val ? 1 : 0 }
 })
 
-// 表单验证规则
-const formRules = {
-  categoryId: [{ required: true, message: '请选择药品分类', trigger: 'change' }],
-  genericName: [{ required: true, message: '请输入通用名', trigger: 'blur' }],
-  tradeName: [{ required: true, message: '请输入商品名', trigger: 'blur' }],
-  specification: [{ required: true, message: '请输入规格', trigger: 'blur' }],
-  unit: [{ required: true, message: '请选择单位', trigger: 'change' }],
-  manufacturer: [{ required: true, message: '请输入生产企业', trigger: 'blur' }],
-  otcType: [{ required: true, message: '请选择OTC类型', trigger: 'change' }],
-  retailPrice: [{ required: true, message: '请输入零售价', trigger: 'blur' }]
-}
+// 判断当前表单分类是否为中药饮片
+const isHerbMode = computed(() => {
+  return formData.categoryId && herbCategoryIds.value.has(formData.categoryId)
+})
+
+// 表单验证规则（动态）
+const formRules = computed(() => {
+  const base = {
+    categoryId: [{ required: true, message: '请选择药品分类', trigger: 'change' }],
+    genericName: [{ required: true, message: '请输入通用名', trigger: 'blur' }],
+    unit: [{ required: true, message: '请选择单位', trigger: 'change' }],
+    retailPrice: [{ required: true, message: '请输入零售价', trigger: 'blur' }]
+  }
+  if (isHerbMode.value) {
+    return base
+  }
+  return {
+    ...base,
+    specification: [{ required: true, message: '请输入规格', trigger: 'blur' }],
+    manufacturer: [{ required: true, message: '请输入生产企业', trigger: 'blur' }],
+    otcType: [{ required: true, message: '请选择OTC类型', trigger: 'change' }]
+  }
+})
+
+// 切换中药饮片/西药时自动设置单位
+watch(isHerbMode, (val) => {
+  if (val) {
+    formData.unit = 'g'
+  } else if (!formData.id) {
+    formData.unit = '盒'
+  }
+})
 
 // 从规格解析拆零比例
 const parseSplitRatio = () => {
@@ -374,12 +531,23 @@ const parseSplitRatio = () => {
   }
 }
 
+// 从分类树中提取中药饮片分类ID（仅根节点）
+const extractHerbIds = (tree) => {
+  const ids = new Set()
+  const herbNode = tree.find(n => n.name === '中药饮片')
+  if (herbNode) {
+    ids.add(herbNode.id)
+  }
+  return ids
+}
+
 // 加载分类树
 const loadCategoryTree = async () => {
   try {
     const res = await getCategoryTree()
     if (res.code === 200) {
       categoryTree.value = res.data || []
+      herbCategoryIds.value = extractHerbIds(categoryTree.value)
     }
   } catch (error) {
     ElMessage.error('加载分类树失败')
@@ -506,18 +674,19 @@ const handleDialogClose = () => {
 // 重置表单数据
 const resetFormData = () => {
   formData.id = null
+  formData.drugCode = ''
   formData.categoryId = null
   formData.genericName = ''
   formData.tradeName = ''
   formData.approvalNo = ''
   formData.dosageForm = ''
   formData.specification = ''
-  formData.unit = ''
+  formData.unit = '盒'
   formData.manufacturer = ''
   formData.manufacturerId = null
   formData.marketingAuthHolder = ''
-  formData.otcType = ''
-  formData.storageCondition = ''
+  formData.otcType = 'RX'
+  formData.storageCondition = '密封常温保存'
   formData.purchasePrice = 0
   formData.retailPrice = 0
   formData.memberPrice = 0
@@ -527,6 +696,19 @@ const resetFormData = () => {
   formData.splitPriority = 0
   formData.isKeyMaintenance = false
   formData.isImported = false
+  formData.herbType = ''
+  formData.alias = ''
+  formData.nature = ''
+  formData.flavor = ''
+  formData.meridian = ''
+  formData.efficacy = ''
+  formData.origin = ''
+  formData.processingMethod = ''
+  formData.dosageMin = null
+  formData.dosageMax = null
+  formData.isToxic = false
+  formData.toxicLevel = ''
+  formData.isPrecious = false
   barcodes.value = []
 }
 

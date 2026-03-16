@@ -53,7 +53,7 @@ mybatis-plus:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:please-set-jwt-secret-in-env}
+  secret: ${JWT_SECRET:yf-pharmacy-jwt-secret-key-2024-must-be-at-least-256-bits-long-for-hs256}
   expiration: 86400000  # 24 hours
 
 # File Upload

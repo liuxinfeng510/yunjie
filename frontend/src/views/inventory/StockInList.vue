@@ -215,6 +215,13 @@
           </el-table-column>
           <el-table-column prop="productionDate" label="生产日期" width="120" />
           <el-table-column prop="expiryDate" label="有效期至" width="120" />
+          <el-table-column label="追溯码" width="90" align="center">
+            <template #default="{ row }">
+              <el-badge :value="row.traceCodeCount || (row.traceCodes ? row.traceCodes.length : 0)" :hidden="!(row.traceCodeCount || (row.traceCodes && row.traceCodes.length))" type="primary">
+                <span>{{ row.traceCodeCount || (row.traceCodes ? row.traceCodes.length : 0) || '-' }}</span>
+              </el-badge>
+            </template>
+          </el-table-column>
         </el-table>
       </div>
 
@@ -373,6 +380,15 @@
         <el-table-column label="金额" width="80" align="right">
           <template #default="{ row }">
             ¥{{ row.amount?.toFixed(2) || '0.00' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="追溯码" width="90" align="center">
+          <template #default="{ row }">
+            <el-badge :value="row.traceCodes?.length || 0" :max="999" :type="row.traceCodes?.length ? 'primary' : 'info'">
+              <el-button link type="primary" size="small" @click="openTraceDialog(row)">
+                录入
+              </el-button>
+            </el-badge>
           </template>
         </el-table-column>
         <el-table-column label="" width="45" align="center">
@@ -577,6 +593,16 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 追溯码录入对话框 -->
+    <TraceCodeInputDialog
+      v-model:visible="traceDialogVisible"
+      :trace-codes="traceDialogRow?.traceCodes || []"
+      :expected-quantity="traceDialogRow?.quantity || 0"
+      :drug-name="traceDialogRow?.drugName || ''"
+      :batch-no="traceDialogRow?.batchNo || ''"
+      @confirm="handleTraceConfirm"
+    />
   </div>
 </template>
 
@@ -585,6 +611,7 @@ import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Delete, MagicStick, UploadFilled, Warning, Loading, Picture, Document } from '@element-plus/icons-vue'
 import SupplierSelect from '@/components/SupplierSelect.vue'
+import TraceCodeInputDialog from '@/components/TraceCodeInputDialog.vue'
 import {
   getStockInPage,
   getStockIn,
@@ -617,6 +644,10 @@ const pagination = reactive({
 // 详情对话框
 const detailDialogVisible = ref(false)
 const currentStockIn = ref(null)
+
+// 追溯码对话框
+const traceDialogVisible = ref(false)
+const traceDialogRow = ref(null)
 
 // 新增对话框
 const addDialogVisible = ref(false)
@@ -779,7 +810,8 @@ const handleEdit = async (row) => {
           quantity: Number(d.quantity) || 1,
           unit: d.unit || drug.unit || '',
           purchasePrice: Number(d.purchasePrice) || 0,
-          amount: Number(d.amount) || 0
+          amount: Number(d.amount) || 0,
+          traceCodes: d.traceCodes || []
         }
       })
 
@@ -918,13 +950,27 @@ const handleAddRow = () => {
     quantity: 1,
     unit: '',
     purchasePrice: 0,
-    amount: 0
+    amount: 0,
+    traceCodes: []
   })
 }
 
 // 删除明细行
 const handleRemoveRow = (index) => {
   detailList.value.splice(index, 1)
+}
+
+// 打开追溯码对话框
+const openTraceDialog = (row) => {
+  traceDialogRow.value = row
+  traceDialogVisible.value = true
+}
+
+// 追溯码确认回调
+const handleTraceConfirm = (codes) => {
+  if (traceDialogRow.value) {
+    traceDialogRow.value.traceCodes = codes
+  }
 }
 
 // 重算行金额
@@ -974,7 +1020,8 @@ const handleSubmit = async () => {
         quantity: row.quantity,
         unit: row.unit,
         purchasePrice: row.purchasePrice,
-        amount: row.amount
+        amount: row.amount,
+        traceCodes: row.traceCodes || []
       }))
     }
 

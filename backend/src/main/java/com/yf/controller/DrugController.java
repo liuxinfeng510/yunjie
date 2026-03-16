@@ -24,6 +24,7 @@ public class DrugController {
 
     private final DrugService drugService;
     private final DrugBarcodeService drugBarcodeService;
+    private final com.yf.service.DrugCategoryService drugCategoryService;
 
     /**
      * 分页查询药品
@@ -99,7 +100,9 @@ public class DrugController {
     @PostMapping
     public ApiResponse create(@RequestBody DrugRequest request) {
         try {
-            Drug drug = drugService.createWithBarcodes(request.getDrug(), request.getBarcodes());
+            Drug drug = request.getDrug();
+            drug.setIsHerb(drugCategoryService.isHerbCategory(drug.getCategoryId()));
+            drug = drugService.createWithBarcodes(drug, request.getBarcodes());
             return ApiResponse.success(drug);
         } catch (RuntimeException e) {
             return ApiResponse.error(e.getMessage());
@@ -118,6 +121,7 @@ public class DrugController {
         try {
             Drug drug = request.getDrug();
             drug.setId(id);
+            drug.setIsHerb(drugCategoryService.isHerbCategory(drug.getCategoryId()));
             drugService.updateWithBarcodes(drug, request.getBarcodes());
             return ApiResponse.success();
         } catch (RuntimeException e) {
