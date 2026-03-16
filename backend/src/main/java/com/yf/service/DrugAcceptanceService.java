@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.DrugAcceptance;
 import com.yf.entity.Store;
+import com.yf.entity.Supplier;
 import com.yf.mapper.DrugAcceptanceMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,6 +21,7 @@ public class DrugAcceptanceService {
     
     private final DrugAcceptanceMapper drugAcceptanceMapper;
     private final StoreService storeService;
+    private final SupplierService supplierService;
     
     /**
      * 分页查询验收记录
@@ -63,6 +65,13 @@ public class DrugAcceptanceService {
                 if (!stores.isEmpty()) {
                     acceptance.setStoreId(stores.get(0).getId());
                 }
+            }
+        }
+        // 快照：填充供应商名称
+        if (acceptance.getSupplierId() != null) {
+            Supplier supplier = supplierService.getById(acceptance.getSupplierId());
+            if (supplier != null) {
+                acceptance.setSupplierName(supplier.getName());
             }
         }
         drugAcceptanceMapper.insert(acceptance);

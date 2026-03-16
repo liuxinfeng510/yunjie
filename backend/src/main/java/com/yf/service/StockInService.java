@@ -4,6 +4,7 @@ import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.Inventory;
+import com.yf.entity.Drug;
 import com.yf.entity.StockIn;
 import com.yf.entity.StockInDetail;
 import com.yf.entity.Store;
@@ -33,6 +34,7 @@ public class StockInService {
     private final StoreService storeService;
     private final SupplierService supplierService;
     private final DrugTraceCodeService drugTraceCodeService;
+    private final DrugService drugService;
     
     /**
      * 分页查询入库单
@@ -49,19 +51,7 @@ public class StockInService {
         }
         
         wrapper.orderByDesc(StockIn::getCreatedAt);
-        Page<StockIn> result = stockInMapper.selectPage(page, wrapper);
-        
-        // 填充供应商名称
-        for (StockIn record : result.getRecords()) {
-            if (record.getSupplierId() != null) {
-                Supplier supplier = supplierService.getById(record.getSupplierId());
-                if (supplier != null) {
-                    record.setSupplierName(supplier.getName());
-                }
-            }
-        }
-        
-        return result;
+        return stockInMapper.selectPage(page, wrapper);
     }
     
     /**
@@ -109,11 +99,15 @@ public class StockInService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         stockIn.setTotalAmount(totalAmount);
         
+        // 快照：填充供应商名称和门店名称
+        fillStockInSnapshot(stockIn);
+        
         stockInMapper.insert(stockIn);
         
         // 保存明细
         for (StockInDetail detail : details) {
             detail.setStockInId(stockIn.getId());
+            fillDetailSnapshot(detail);
             stockInDetailMapper.insert(detail);
             // 保存追溯码
             if (detail.getTraceCodes() != null && !detail.getTraceCodes().isEmpty()) {
@@ -145,6 +139,9 @@ public class StockInService {
         stockIn.setSupplierId(stockInParam.getSupplierId());
         stockIn.setRemark(stockInParam.getRemark());
 
+        // 快照：更新供应商名称
+        fillStockInSnapshot(stockIn);
+
         // 计算总金额
         BigDecimal totalAmount = details.stream()
                 .map(StockInDetail::getAmount)
@@ -163,6 +160,7 @@ public class StockInService {
         for (StockInDetail detail : details) {
             detail.setId(null);
             detail.setStockInId(id);
+            fillDetailSnapshot(detail);
             stockInDetailMapper.insert(detail);
             // 保存追溯码
             if (detail.getTraceCodes() != null && !detail.getTraceCodes().isEmpty()) {
@@ -272,5 +270,33 @@ public class StockInService {
             }
         }
         return details;
+    }
+
+    /** 填充入库单主表快照字段 */
+    private void fillStockInSnapshot(StockIn stockIn) {
+        if (stockIn.getSupplierId() != null) {
+            Supplier supplier = supplierService.getById(stockIn.getSupplierId());
+            if (supplier != null) {
+                stockIn.setSupplierName(supplier.getName());
+            }
+        }
+        if (stockIn.getStoreId() != null) {
+            Store store = storeService.getById(stockIn.getStoreId());
+            if (store != null) {
+                stockIn.setStoreName(store.getName());
+            }
+        }
+    }
+
+    /** 填充入库单明细快照字段 */
+    private void fillDetailSnapshot(StockInDetail detail) {
+        if (detail.getDrugId() != null) {
+            Drug drug = drugService.getById(detail.getDrugId());
+            if (drug != null) {
+                detail.setDrugName(drug.getGenericName());
+                detail.setSpecification(drug.getSpecification());
+                detail.setManufacturer(drug.getManufacturer());
+            }
+        }
     }
 }

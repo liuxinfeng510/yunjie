@@ -2,13 +2,18 @@ package com.yf.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.dto.DrugRequest;
+import com.yf.dto.ImportExecuteRequest;
+import com.yf.dto.ImportExecuteResponse;
+import com.yf.dto.ImportParseResponse;
 import com.yf.entity.Drug;
 import com.yf.entity.DrugBarcode;
+import com.yf.service.BatchImportService;
 import com.yf.service.DrugBarcodeService;
 import com.yf.service.DrugService;
 import com.yf.vo.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.HashMap;
 import java.util.List;
@@ -25,6 +30,7 @@ public class DrugController {
     private final DrugService drugService;
     private final DrugBarcodeService drugBarcodeService;
     private final com.yf.service.DrugCategoryService drugCategoryService;
+    private final BatchImportService batchImportService;
 
     /**
      * 分页查询药品
@@ -142,5 +148,23 @@ public class DrugController {
             return ApiResponse.success();
         }
         return ApiResponse.error("删除失败");
+    }
+
+    /**
+     * 导入解析 - 上传Excel并自动映射字段
+     */
+    @PostMapping("/import/parse")
+    public ApiResponse<ImportParseResponse> importParse(@RequestParam("file") MultipartFile file) {
+        ImportParseResponse result = batchImportService.parseExcel(file, "drug");
+        return ApiResponse.success(result);
+    }
+
+    /**
+     * 导入执行 - 按映射关系批量导入药品
+     */
+    @PostMapping("/import/execute")
+    public ApiResponse<ImportExecuteResponse> importExecute(@RequestBody ImportExecuteRequest request) {
+        ImportExecuteResponse result = batchImportService.executeDrugImport(request);
+        return ApiResponse.success(result);
     }
 }

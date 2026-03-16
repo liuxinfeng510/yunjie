@@ -3,6 +3,7 @@ package com.yf.service;
 import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yf.entity.Drug;
 import com.yf.entity.StockOut;
 import com.yf.entity.StockOutDetail;
 import com.yf.entity.Store;
@@ -25,6 +26,7 @@ public class StockOutService {
     private final StockOutDetailMapper stockOutDetailMapper;
     private final InventoryService inventoryService;
     private final StoreService storeService;
+    private final DrugService drugService;
 
     public Page<StockOut> page(Long storeId, String type, String status, int pageNum, int pageSize) {
         Page<StockOut> page = new Page<>(pageNum, pageSize);
@@ -78,10 +80,29 @@ public class StockOutService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
         stockOut.setTotalAmount(totalAmount);
 
+        // 快照：填充门店名称
+        if (stockOut.getStoreId() != null) {
+            Store store = storeService.getById(stockOut.getStoreId());
+            if (store != null) stockOut.setStoreName(store.getName());
+        }
+        if (stockOut.getTargetStoreId() != null) {
+            Store target = storeService.getById(stockOut.getTargetStoreId());
+            if (target != null) stockOut.setTargetStoreName(target.getName());
+        }
+
         stockOutMapper.insert(stockOut);
 
         for (StockOutDetail detail : details) {
             detail.setStockOutId(stockOut.getId());
+            // 快照：填充药品信息
+            if (detail.getDrugId() != null) {
+                Drug drug = drugService.getById(detail.getDrugId());
+                if (drug != null) {
+                    detail.setDrugName(drug.getGenericName());
+                    detail.setSpecification(drug.getSpecification());
+                    detail.setManufacturer(drug.getManufacturer());
+                }
+            }
             stockOutDetailMapper.insert(detail);
         }
 

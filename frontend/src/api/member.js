@@ -28,6 +28,17 @@ export function deductPoints(id, data) {
   return request.post(`/member/${id}/deduct-points`, data)
 }
 
+// 批量导入
+export function parseMemberImport(formData) {
+  return request.post('/member/import/parse', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000
+  })
+}
+export function executeMemberImport(data) {
+  return request.post('/member/import/execute', data, { timeout: 120000 })
+}
+
 // 会员等级
 export function getMemberLevelPage(params) {
   return request.get('/member-level/page', { params })

@@ -14,6 +14,7 @@ public class FirstMarketingDrug extends BaseEntity {
 
     private String applyNo;
     private Long firstSupplierId;
+    private String firstSupplierName;
     private Long supplierId;
     private String supplierName;
     private Long drugId;

@@ -48,4 +48,24 @@ public class StockCheckDetail extends BaseEntity {
      * 差异原因
      */
     private String diffReason;
+    
+    /**
+     * 药品通用名（快照）
+     */
+    private String drugName;
+    
+    /**
+     * 规格（快照）
+     */
+    private String specification;
+    
+    /**
+     * 批次号（快照）
+     */
+    private String batchNo;
+    
+    /**
+     * 单位（快照）
+     */
+    private String unit;
 }

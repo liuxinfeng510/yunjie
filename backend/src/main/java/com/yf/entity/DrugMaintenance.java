@@ -81,6 +81,11 @@ public class DrugMaintenance extends BaseEntity {
     private Long operatorId;
     
     /**
+     * 养护人姓名（快照）
+     */
+    private String operatorName;
+    
+    /**
      * 养护时间
      */
     private LocalDateTime maintenanceTime;

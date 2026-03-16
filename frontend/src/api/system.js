@@ -102,7 +102,7 @@ export function uploadMigrationFile(formData) {
 
 /** 执行迁移任务 */
 export function executeMigration(id) {
-  return request.post(`/migration/${id}/execute`)
+  return request.post(`/migration/${id}/execute`, null, { timeout: 120000 })
 }
 
 /** 删除迁移任务 */

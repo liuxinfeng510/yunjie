@@ -3,6 +3,7 @@ package com.yf.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.FirstMarketingDrug;
+import com.yf.entity.FirstMarketingSupplier;
 import com.yf.mapper.FirstMarketingDrugMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,11 +19,13 @@ public class FirstMarketingDrugService {
 
     private final FirstMarketingDrugMapper mapper;
     private final SysConfigService sysConfigService;
+    private final FirstMarketingSupplierService firstMarketingSupplierService;
 
     @Transactional
     public FirstMarketingDrug create(FirstMarketingDrug entity) {
         entity.setApplyNo("SP" + System.currentTimeMillis());
         entity.setStatus("draft");
+        fillFirstSupplierSnapshot(entity);
         mapper.insert(entity);
         log.info("创建首营品种申请：{}", entity.getApplyNo());
         return entity;
@@ -40,6 +43,7 @@ public class FirstMarketingDrugService {
         entity.setId(id);
         entity.setApplyNo(existing.getApplyNo());
         entity.setStatus(existing.getStatus());
+        fillFirstSupplierSnapshot(entity);
         mapper.updateById(entity);
     }
 
@@ -142,5 +146,14 @@ public class FirstMarketingDrugService {
 
     public FirstMarketingDrug getById(Long id) {
         return mapper.selectById(id);
+    }
+
+    private void fillFirstSupplierSnapshot(FirstMarketingDrug entity) {
+        if (entity.getFirstSupplierId() != null) {
+            FirstMarketingSupplier fms = firstMarketingSupplierService.getById(entity.getFirstSupplierId());
+            if (fms != null) {
+                entity.setFirstSupplierName(fms.getSupplierName());
+            }
+        }
     }
 }

@@ -40,6 +40,7 @@
     <el-card shadow="never">
       <div style="margin-bottom: 16px;">
         <el-button type="primary" @click="handleAdd" :icon="Plus">新增药品</el-button>
+        <el-button type="warning" @click="importDialogVisible = true">批量导入</el-button>
       </div>
 
       <!-- 表格 -->
@@ -383,6 +384,15 @@
         <el-button type="primary" @click="handleSubmit" :loading="submitLoading">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 批量导入对话框 -->
+    <BatchImportDialog
+      v-model:visible="importDialogVisible"
+      title="批量导入药品"
+      :parse-api="parseDrugImport"
+      :execute-api="executeDrugImport"
+      @success="loadData"
+    />
   </div>
 </template>
 
@@ -393,6 +403,7 @@ import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
 import DictSelect from '@/components/DictSelect.vue'
 import ManufacturerSelect from '@/components/ManufacturerSelect.vue'
 import BarcodeInput from '@/components/BarcodeInput.vue'
+import BatchImportDialog from '@/components/BatchImportDialog.vue'
 import {
   getDrugPage,
   getDrug,
@@ -400,7 +411,9 @@ import {
   updateDrug,
   deleteDrug,
   getCategoryTree,
-  initHerbCategories
+  initHerbCategories,
+  parseDrugImport,
+  executeDrugImport
 } from '@/api/drug'
 
 // 搜索表单
@@ -438,6 +451,9 @@ const submitLoading = ref(false)
 
 // 条形码列表
 const barcodes = ref([])
+
+// 导入对话框
+const importDialogVisible = ref(false)
 
 // 表单数据
 const formData = reactive({

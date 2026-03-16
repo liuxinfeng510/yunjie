@@ -53,4 +53,19 @@ public class StockOutDetail extends BaseEntity {
      * 金额
      */
     private BigDecimal amount;
+    
+    /**
+     * 药品通用名（快照）
+     */
+    private String drugName;
+    
+    /**
+     * 规格（快照）
+     */
+    private String specification;
+    
+    /**
+     * 生产企业（快照）
+     */
+    private String manufacturer;
 }

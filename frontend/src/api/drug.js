@@ -19,6 +19,17 @@ export function deleteDrug(id) {
   return request.delete(`/drug/${id}`)
 }
 
+// 批量导入
+export function parseDrugImport(formData) {
+  return request.post('/drug/import/parse', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000
+  })
+}
+export function executeDrugImport(data) {
+  return request.post('/drug/import/execute', data, { timeout: 120000 })
+}
+
 // 字典项
 export function getDictList(type) {
   return request.get(`/sys-dict/${type}/list`)

@@ -172,7 +172,12 @@ const doSetup = async () => {
   try {
     await quickSetup({
       ...basicForm,
-      store: storeForm,
+      mainStore: {
+        name: storeForm.storeName,
+        address: storeForm.address,
+        gspCertNo: storeForm.gspCertNo,
+        licenseNo: storeForm.businessLicense
+      },
       initData: initDataOptions.value
     })
     ElMessage.success('部署成功')

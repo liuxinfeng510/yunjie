@@ -1,5 +1,6 @@
 package com.yf.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -10,6 +11,7 @@ import java.util.List;
  * 快速配置请求 - 单体/连锁模式一键初始化
  */
 @Data
+@JsonIgnoreProperties(ignoreUnknown = true)
 public class QuickSetupRequest {
 
     /** 经营模式: single_store / chain_store */

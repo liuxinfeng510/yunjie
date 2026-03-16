@@ -141,7 +141,6 @@
             v-model="memberPhone"
             placeholder="姓名/拼音/手机号"
             clearable
-            @blur="searchMember"
             @keyup.enter="searchMember"
           >
             <template #prefix>
@@ -151,11 +150,24 @@
               <el-button @click="searchMember">查询</el-button>
             </template>
           </el-input>
+          <!-- 搜索结果列表 -->
+          <div v-if="memberSearchList.length > 0" class="member-search-list">
+            <div
+              v-for="item in memberSearchList" :key="item.id"
+              class="member-search-item"
+              @click="selectMember(item)"
+            >
+              <span class="name">{{ item.name }}</span>
+              <span class="phone">{{ item.phone }}</span>
+              <span class="points-tag">{{ item.points || 0 }}积分</span>
+            </div>
+          </div>
           <div v-if="currentMember" class="member-info">
             <div class="member-row">
               <span class="label">会员：</span>
               <span class="value">{{ currentMember.name }}</span>
               <el-tag type="success" size="small">{{ currentMember.levelName || '普通会员' }}</el-tag>
+              <el-button link type="danger" size="small" style="margin-left: 8px;" @click="clearMember">清除</el-button>
             </div>
             <div class="member-row">
               <span class="label">积分：</span>
@@ -390,6 +402,7 @@ const cartItems = ref([])
 const memberPhone = ref('')
 const currentMember = ref(null)
 const memberLevels = ref([])
+const memberSearchList = ref([])
 
 // 支付信息
 const discountAmount = ref(0)
@@ -581,21 +594,43 @@ const getSummaries = (param) => {
 const searchMember = async () => {
   if (!memberPhone.value.trim()) {
     currentMember.value = null
+    memberSearchList.value = []
     return
   }
 
   try {
     const res = await searchMembers(memberPhone.value)
     if (res.code === 200 && res.data && res.data.length > 0) {
-      currentMember.value = res.data[0]
-      ElMessage.success('会员信息加载成功')
+      if (res.data.length === 1) {
+        // 只有一个结果，直接选中
+        selectMember(res.data[0])
+      } else {
+        // 多个结果，显示列表让用户选
+        memberSearchList.value = res.data
+        currentMember.value = null
+      }
     } else {
       currentMember.value = null
+      memberSearchList.value = []
       ElMessage.warning('未找到该会员')
     }
   } catch (error) {
     ElMessage.error('查询会员失败：' + error.message)
   }
+}
+
+// 选择会员
+const selectMember = (member) => {
+  currentMember.value = member
+  memberSearchList.value = []
+  ElMessage.success('已选择会员：' + member.name)
+}
+
+// 清除会员
+const clearMember = () => {
+  currentMember.value = null
+  memberPhone.value = ''
+  memberSearchList.value = []
 }
 
 // 挂单
@@ -1110,6 +1145,38 @@ const loadMemberLevels = async () => {
 
   .member-section {
     margin-bottom: 20px;
+    position: relative;
+
+    .member-search-list {
+      position: absolute;
+      top: 34px;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      background: #fff;
+      border: 1px solid #dcdfe6;
+      border-radius: 4px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
+      max-height: 240px;
+      overflow-y: auto;
+
+      .member-search-item {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        cursor: pointer;
+        border-bottom: 1px solid #f0f0f0;
+        font-size: 13px;
+
+        &:last-child { border-bottom: none; }
+        &:hover { background: #ecf5ff; }
+
+        .name { font-weight: 600; color: #303133; min-width: 60px; }
+        .phone { color: #909399; }
+        .points-tag { margin-left: auto; color: #ff6b00; font-size: 12px; }
+      }
+    }
 
     .member-info {
       margin-top: 12px;

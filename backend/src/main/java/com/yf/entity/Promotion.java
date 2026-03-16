@@ -21,6 +21,11 @@ public class Promotion extends BaseEntity {
     private Long storeId;
     
     /**
+     * 门店名称（快照）
+     */
+    private String storeName;
+    
+    /**
      * 促销名称
      */
     private String name;
@@ -69,6 +74,11 @@ public class Promotion extends BaseEntity {
      * 赠品药品ID（赠品类型使用）
      */
     private Long giftDrugId;
+    
+    /**
+     * 赠品药品名称（快照）
+     */
+    private String giftDrugName;
     
     /**
      * 赠品数量

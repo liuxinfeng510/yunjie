@@ -57,9 +57,19 @@ public class HerbCabinetFillRecord extends BaseEntity {
     private Long targetCabinetId;
     
     /**
+     * 目标斗柜名称（快照）
+     */
+    private String targetCabinetName;
+    
+    /**
      * 目标斗格ID
      */
     private Long targetCellId;
+    
+    /**
+     * 目标斗格标签（快照）
+     */
+    private String targetCellLabel;
     
     /**
      * 装斗前检查结果
@@ -80,6 +90,11 @@ public class HerbCabinetFillRecord extends BaseEntity {
      * 操作员ID
      */
     private Long operatorId;
+    
+    /**
+     * 操作员姓名（快照）
+     */
+    private String operatorName;
     
     /**
      * 装斗时间

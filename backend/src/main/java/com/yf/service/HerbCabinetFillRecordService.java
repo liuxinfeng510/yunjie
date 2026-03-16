@@ -1,9 +1,13 @@
 package com.yf.service;
 
+import com.yf.entity.HerbCabinet;
 import com.yf.entity.HerbCabinetCell;
 import com.yf.entity.HerbCabinetFillRecord;
+import com.yf.entity.SysUser;
 import com.yf.mapper.HerbCabinetCellMapper;
 import com.yf.mapper.HerbCabinetFillRecordMapper;
+import com.yf.mapper.HerbCabinetMapper;
+import com.yf.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,12 +23,36 @@ public class HerbCabinetFillRecordService {
     
     private final HerbCabinetFillRecordMapper fillRecordMapper;
     private final HerbCabinetCellMapper cellMapper;
+    private final HerbCabinetMapper cabinetMapper;
+    private final SysUserMapper sysUserMapper;
     
     /**
      * 创建装斗记录并更新斗格库存
      */
     @Transactional(rollbackFor = Exception.class)
     public boolean createFillRecord(HerbCabinetFillRecord record) {
+        // 快照：填充斗柜名称
+        if (record.getTargetCabinetId() != null) {
+            HerbCabinet cabinet = cabinetMapper.selectById(record.getTargetCabinetId());
+            if (cabinet != null) {
+                record.setTargetCabinetName(cabinet.getName());
+            }
+        }
+        // 快照：填充斗格标签
+        if (record.getTargetCellId() != null) {
+            HerbCabinetCell preCell = cellMapper.selectById(record.getTargetCellId());
+            if (preCell != null) {
+                record.setTargetCellLabel(preCell.getLabel());
+            }
+        }
+        // 快照：填充操作员姓名
+        if (record.getOperatorId() != null) {
+            SysUser user = sysUserMapper.selectById(record.getOperatorId());
+            if (user != null) {
+                record.setOperatorName(user.getRealName());
+            }
+        }
+
         // 插入装斗记录
         if (fillRecordMapper.insert(record) <= 0) {
             return false;

@@ -35,6 +35,8 @@ public class DataMigrationTask extends BaseEntity {
     private Integer skipCount;
     /** 错误日志 */
     private String errorLog;
+    /** 跳过日志（记录跳过原因） */
+    private String skipLog;
     /** 开始时间 */
     private LocalDateTime startTime;
     /** 完成时间 */

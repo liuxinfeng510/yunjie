@@ -3,6 +3,8 @@ package com.yf.service;
 import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yf.entity.Drug;
+import com.yf.entity.DrugBatch;
 import com.yf.entity.Inventory;
 import com.yf.entity.StockCheck;
 import com.yf.entity.StockCheckDetail;
@@ -27,6 +29,8 @@ public class StockCheckService {
     private final StockCheckDetailMapper stockCheckDetailMapper;
     private final InventoryMapper inventoryMapper;
     private final InventoryService inventoryService;
+    private final DrugService drugService;
+    private final DrugBatchService drugBatchService;
 
     public Page<StockCheck> page(Long storeId, String type, String status, int pageNum, int pageSize) {
         Page<StockCheck> page = new Page<>(pageNum, pageSize);
@@ -84,6 +88,21 @@ public class StockCheckService {
             detail.setSystemQuantity(inv.getQuantity());
             detail.setActualQuantity(null); // 待盘点
             detail.setDiffQuantity(BigDecimal.ZERO);
+            // 快照：填充药品和批次信息
+            if (inv.getDrugId() != null) {
+                Drug drug = drugService.getById(inv.getDrugId());
+                if (drug != null) {
+                    detail.setDrugName(drug.getGenericName());
+                    detail.setSpecification(drug.getSpecification());
+                    detail.setUnit(drug.getUnit());
+                }
+            }
+            if (inv.getBatchId() != null) {
+                DrugBatch batch = drugBatchService.getById(inv.getBatchId());
+                if (batch != null) {
+                    detail.setBatchNo(batch.getBatchNo());
+                }
+            }
             stockCheckDetailMapper.insert(detail);
         }
 

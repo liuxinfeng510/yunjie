@@ -1,12 +1,17 @@
 package com.yf.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.yf.dto.ImportExecuteRequest;
+import com.yf.dto.ImportExecuteResponse;
+import com.yf.dto.ImportParseResponse;
 import com.yf.entity.Member;
 import com.yf.entity.MemberPointsLog;
+import com.yf.service.BatchImportService;
 import com.yf.service.MemberService;
 import com.yf.vo.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -19,6 +24,7 @@ import java.util.Map;
 public class MemberController {
     
     private final MemberService memberService;
+    private final BatchImportService batchImportService;
     
     /**
      * 分页查询会员
@@ -119,5 +125,23 @@ public class MemberController {
         
         memberService.deductPoints(id, points, type, relatedOrderId);
         return ApiResponse.success();
+    }
+    
+    /**
+     * 导入解析 - 上传Excel并自动映射字段
+     */
+    @PostMapping("/import/parse")
+    public ApiResponse<ImportParseResponse> importParse(@RequestParam("file") MultipartFile file) {
+        ImportParseResponse result = batchImportService.parseExcel(file, "member");
+        return ApiResponse.success(result);
+    }
+    
+    /**
+     * 导入执行 - 按映射关系批量导入会员
+     */
+    @PostMapping("/import/execute")
+    public ApiResponse<ImportExecuteResponse> importExecute(@RequestBody ImportExecuteRequest request) {
+        ImportExecuteResponse result = batchImportService.executeMemberImport(request);
+        return ApiResponse.success(result);
     }
 }

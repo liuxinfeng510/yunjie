@@ -11,7 +11,7 @@
       <!-- 筛选 -->
       <el-form :inline="true" style="margin-bottom: 16px;">
         <el-form-item label="目标模块">
-          <el-select v-model="query.targetModule" clearable placeholder="全部模块" @change="loadData">
+          <el-select v-model="query.targetModule" clearable placeholder="全部模块" style="width: 160px;" @change="loadData">
             <el-option label="药品" value="drug" />
             <el-option label="中药" value="herb" />
             <el-option label="会员" value="member" />
@@ -20,7 +20,7 @@
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-select v-model="query.status" clearable placeholder="全部状态" @change="loadData">
+          <el-select v-model="query.status" clearable placeholder="全部状态" style="width: 140px;" @change="loadData">
             <el-option label="待执行" value="pending" />
             <el-option label="执行中" value="processing" />
             <el-option label="已完成" value="completed" />
@@ -63,8 +63,9 @@
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status === 'pending' || row.status === 'failed'"
-              link type="primary" @click="handleExecute(row.id)">执行</el-button>
+              link type="primary" :loading="row._executing" @click="handleExecute(row)">执行</el-button>
             <el-button v-if="row.errorLog" link type="warning" @click="showError(row)">错误日志</el-button>
+            <el-button v-if="row.skipLog || (row.skipCount > 0 && row.status === 'completed')" link type="info" @click="showSkip(row)">跳过日志</el-button>
             <el-popconfirm title="确定删除该任务?" @confirm="handleDelete(row.id)"
               v-if="row.status !== 'processing'">
               <template #reference>
@@ -122,6 +123,39 @@
     <el-dialog v-model="showErrorDialog" title="错误日志" width="600px">
       <pre style="white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; background: #f5f7fa; padding: 12px; border-radius: 4px;">{{ currentErrorLog }}</pre>
     </el-dialog>
+
+    <!-- 跳过日志对话框 -->
+    <el-dialog v-model="showSkipDialog" title="跳过日志" width="600px">
+      <pre style="white-space: pre-wrap; word-break: break-all; max-height: 400px; overflow-y: auto; background: #fdf6ec; padding: 12px; border-radius: 4px; border: 1px solid #f5dab1;">{{ currentSkipLog }}</pre>
+    </el-dialog>
+
+    <!-- 执行结果对话框 -->
+    <el-dialog v-model="showResultDialog" title="执行结果" width="550px">
+      <el-result
+        :icon="executeResult.fail > 0 ? 'warning' : 'success'"
+        :title="executeResult.fail > 0 ? '导入完成（部分失败）' : '导入完成'"
+      >
+        <template #sub-title>
+          <div style="font-size: 14px; line-height: 2;">
+            总计：<b>{{ executeResult.total }}</b> 条 &nbsp;
+            <span style="color: #67c23a;">成功：<b>{{ executeResult.success }}</b></span> &nbsp;
+            <span style="color: #909399;">跳过：<b>{{ executeResult.skip }}</b></span> &nbsp;
+            <span style="color: #f56c6c;">失败：<b>{{ executeResult.fail }}</b></span>
+          </div>
+        </template>
+      </el-result>
+      <div v-if="executeResult.skipLog" style="margin-top: 8px;">
+        <div style="font-weight: 600; margin-bottom: 8px; color: #e6a23c;">跳过详情：</div>
+        <pre style="white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; background: #fdf6ec; padding: 12px; border-radius: 4px; font-size: 13px; border: 1px solid #f5dab1;">{{ executeResult.skipLog }}</pre>
+      </div>
+      <div v-if="executeResult.errorLog" style="margin-top: 8px;">
+        <div style="font-weight: 600; margin-bottom: 8px; color: #f56c6c;">失败详情：</div>
+        <pre style="white-space: pre-wrap; word-break: break-all; max-height: 200px; overflow-y: auto; background: #f5f7fa; padding: 12px; border-radius: 4px; font-size: 13px;">{{ executeResult.errorLog }}</pre>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="showResultDialog = false">确定</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -147,6 +181,12 @@ const uploadForm = reactive({
 
 const showErrorDialog = ref(false)
 const currentErrorLog = ref('')
+
+const showSkipDialog = ref(false)
+const currentSkipLog = ref('')
+
+const showResultDialog = ref(false)
+const executeResult = ref({ total: 0, success: 0, fail: 0, skip: 0, errorLog: '', skipLog: '' })
 
 const moduleLabels = { drug: '药品', herb: '中药', member: '会员', supplier: '供应商', inventory: '库存' }
 
@@ -210,19 +250,36 @@ async function handleUpload() {
   }
 }
 
-async function handleExecute(id) {
+async function handleExecute(row) {
+  row._executing = true
   try {
-    await executeMigration(id)
-    ElMessage.success('任务已开始执行')
+    const res = await executeMigration(row.id)
+    const task = res.data
+    executeResult.value = {
+      total: task.totalCount || 0,
+      success: task.successCount || 0,
+      fail: task.failCount || 0,
+      skip: task.skipCount || 0,
+      errorLog: task.errorLog || '',
+      skipLog: task.skipLog || ''
+    }
+    showResultDialog.value = true
     loadData()
   } catch (e) {
-    ElMessage.error(e.response?.data?.message || '执行失败')
+    ElMessage.error('执行失败: ' + (e.message || '未知错误'))
+  } finally {
+    row._executing = false
   }
 }
 
 function showError(row) {
   currentErrorLog.value = row.errorLog || '无错误信息'
   showErrorDialog.value = true
+}
+
+function showSkip(row) {
+  currentSkipLog.value = row.skipLog || '无跳过信息'
+  showSkipDialog.value = true
 }
 
 async function handleDelete(id) {

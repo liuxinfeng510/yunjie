@@ -71,6 +71,11 @@ public class HerbDispensingRecord extends BaseEntity {
     private Long dispenserId;
     
     /**
+     * 配药人姓名（快照）
+     */
+    private String dispenserName;
+    
+    /**
      * 配药时间
      */
     private LocalDateTime dispenseTime;

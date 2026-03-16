@@ -31,6 +31,11 @@ public class Drug extends BaseEntity {
     private String barcode;
 
     /**
+     * 原系统编号（用于数据迁移时关联库存等）
+     */
+    private String originalCode;
+
+    /**
      * 通用名
      */
     private String genericName;

@@ -392,12 +392,25 @@ router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
   
-  if (to.path !== '/login' && !token) {
-    next('/login')
+  // 未登录 → 只能访问登录页
+  if (!token) {
+    if (to.path !== '/login') {
+      next('/login')
+    } else {
+      next()
+    }
     return
   }
-  
-  if (token && userStr) {
+
+  // 已登录 → 访问登录页时先清除旧会话，允许重新登录
+  if (to.path === '/login') {
+    localStorage.removeItem('token')
+    localStorage.removeItem('user')
+    next()
+    return
+  }
+
+  if (userStr) {
     const user = JSON.parse(userStr)
     const isSuperAdmin = user.tenantId === 0
     

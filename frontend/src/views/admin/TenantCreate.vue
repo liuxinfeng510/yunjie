@@ -17,8 +17,8 @@
           <el-input v-model="form.name" placeholder="请输入企业/药房名称" />
         </el-form-item>
         
-        <el-form-item label="租户编码" prop="code">
-          <el-input v-model="form.code" placeholder="唯一标识，如: yf001" />
+        <el-form-item label="租户编码">
+          <el-input placeholder="提交后自动生成" disabled />
         </el-form-item>
         
         <el-form-item label="信用代码" prop="creditCode">
@@ -50,13 +50,13 @@
         </el-form-item>
 
         <el-divider content-position="left">管理员账号</el-divider>
-        
-        <el-form-item label="管理员账号" prop="adminUsername">
-          <el-input v-model="form.adminUsername" placeholder="租户管理员登录账号" />
+
+        <el-form-item label="管理员账号">
+          <el-input placeholder="提交后自动生成" disabled />
         </el-form-item>
-        
-        <el-form-item label="初始密码" prop="adminPassword">
-          <el-input v-model="form.adminPassword" type="password" show-password placeholder="初始登录密码" />
+
+        <el-form-item label="初始密码">
+          <el-input placeholder="提交后自动生成" disabled />
         </el-form-item>
         
         <el-form-item label="管理员姓名" prop="adminRealName">
@@ -71,6 +71,23 @@
         </el-form-item>
       </el-form>
     </el-card>
+
+    <!-- 开通成功弹窗，展示自动生成的账号密码 -->
+    <el-dialog v-model="showResult" title="租户开通成功" width="460px" :close-on-click-modal="false">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="租户编码">{{ resultData.tenantCode }}</el-descriptions-item>
+        <el-descriptions-item label="管理员账号">{{ resultData.adminUsername }}</el-descriptions-item>
+        <el-descriptions-item label="初始密码">
+          <span style="color: #E6A23C; font-weight: bold;">{{ resultData.adminPassword }}</span>
+        </el-descriptions-item>
+      </el-descriptions>
+      <div style="margin-top: 12px; color: #909399; font-size: 13px;">
+        请妥善保存以上信息，初始密码建议登录后立即修改。
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="copyAndClose">复制信息并关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -83,30 +100,23 @@ import request from '@/utils/request'
 const router = useRouter()
 const formRef = ref()
 const submitting = ref(false)
+const showResult = ref(false)
+const resultData = ref({ tenantCode: '', adminUsername: '', adminPassword: '' })
 
 const form = ref({
   name: '',
-  code: '',
   creditCode: '',
   businessMode: 'single_store',
   contactName: '',
   contactPhone: '',
-  adminUsername: '',
-  adminPassword: '',
   adminRealName: ''
 })
 
 const rules = {
   name: [{ required: true, message: '请输入租户名称', trigger: 'blur' }],
-  code: [{ required: true, message: '请输入租户编码', trigger: 'blur' }],
   businessMode: [{ required: true, message: '请选择经营模式', trigger: 'change' }],
   contactName: [{ required: true, message: '请输入联系人', trigger: 'blur' }],
   contactPhone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }],
-  adminUsername: [{ required: true, message: '请输入管理员账号', trigger: 'blur' }],
-  adminPassword: [
-    { required: true, message: '请输入初始密码', trigger: 'blur' },
-    { min: 6, message: '密码长度至少6位', trigger: 'blur' }
-  ],
   adminRealName: [{ required: true, message: '请输入管理员姓名', trigger: 'blur' }]
 }
 
@@ -118,8 +128,9 @@ async function submitForm() {
   try {
     const res = await request.post('/tenant', form.value)
     if (res.code === 200) {
+      resultData.value = res.data
+      showResult.value = true
       ElMessage.success('租户开通成功')
-      router.push('/admin/tenant')
     } else {
       ElMessage.error(res.message || '开通失败')
     }
@@ -128,6 +139,17 @@ async function submitForm() {
   } finally {
     submitting.value = false
   }
+}
+
+function copyAndClose() {
+  const text = `租户编码: ${resultData.value.tenantCode}\n管理员账号: ${resultData.value.adminUsername}\n初始密码: ${resultData.value.adminPassword}`
+  navigator.clipboard.writeText(text).then(() => {
+    ElMessage.success('已复制到剪贴板')
+  }).catch(() => {
+    ElMessage.info('请手动复制')
+  })
+  showResult.value = false
+  router.push('/admin/tenant')
 }
 
 function resetForm() {

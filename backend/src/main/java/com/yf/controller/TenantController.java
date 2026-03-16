@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 租户管理控制器 - 仅超级管理员可访问
@@ -18,6 +19,11 @@ import java.util.List;
 public class TenantController {
 
     private final TenantService tenantService;
+
+    @GetMapping("/statistics")
+    public ApiResponse<Map<String, Long>> statistics() {
+        return ApiResponse.success(tenantService.getStatistics());
+    }
 
     @GetMapping("/page")
     public ApiResponse<Page<Tenant>> page(
@@ -39,9 +45,19 @@ public class TenantController {
     }
 
     @PostMapping
-    public ApiResponse<Void> create(@RequestBody Tenant tenant) {
-        tenantService.create(tenant);
-        return ApiResponse.success();
+    public ApiResponse<Map<String, String>> create(@RequestBody Map<String, Object> data) {
+        Tenant tenant = new Tenant();
+        tenant.setName((String) data.get("name"));
+        tenant.setCreditCode((String) data.get("creditCode"));
+        tenant.setBusinessMode((String) data.get("businessMode"));
+        tenant.setContactName((String) data.get("contactName"));
+        tenant.setContactPhone((String) data.get("contactPhone"));
+
+        String adminRealName = (String) data.get("adminRealName");
+        String contactPhone = (String) data.get("contactPhone");
+
+        Map<String, String> result = tenantService.create(tenant, adminRealName, contactPhone);
+        return ApiResponse.success(result);
     }
 
     @PutMapping("/{id}")

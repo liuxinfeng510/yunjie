@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.DrugMaintenance;
 import com.yf.entity.Store;
+import com.yf.entity.SysUser;
 import com.yf.mapper.DrugMaintenanceMapper;
+import com.yf.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,6 +22,7 @@ public class DrugMaintenanceService {
     
     private final DrugMaintenanceMapper drugMaintenanceMapper;
     private final StoreService storeService;
+    private final SysUserMapper sysUserMapper;
     
     /**
      * 分页查询养护记录
@@ -63,6 +66,13 @@ public class DrugMaintenanceService {
                 if (!stores.isEmpty()) {
                     maintenance.setStoreId(stores.get(0).getId());
                 }
+            }
+        }
+        // 快照：填充养护人姓名
+        if (maintenance.getOperatorId() != null) {
+            SysUser user = sysUserMapper.selectById(maintenance.getOperatorId());
+            if (user != null) {
+                maintenance.setOperatorName(user.getRealName());
             }
         }
         drugMaintenanceMapper.insert(maintenance);

@@ -1,12 +1,14 @@
 package com.yf.service;
 
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.HerbIncompatibility;
 import com.yf.mapper.HerbIncompatibilityMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -23,6 +25,24 @@ import java.util.stream.Collectors;
 public class HerbIncompatibilityService {
 
     private final HerbIncompatibilityMapper incompatibilityMapper;
+
+    /**
+     * 分页查询配伍禁忌
+     */
+    public Page<HerbIncompatibility> page(int pageNum, int pageSize, String herbName, String type) {
+        Page<HerbIncompatibility> page = new Page<>(pageNum, pageSize);
+        LambdaQueryWrapper<HerbIncompatibility> wrapper = new LambdaQueryWrapper<>();
+        if (StringUtils.hasText(herbName)) {
+            wrapper.and(w -> w.like(HerbIncompatibility::getHerbA, herbName)
+                    .or()
+                    .like(HerbIncompatibility::getHerbB, herbName));
+        }
+        if (StringUtils.hasText(type)) {
+            wrapper.eq(HerbIncompatibility::getType, type);
+        }
+        wrapper.orderByDesc(HerbIncompatibility::getId);
+        return incompatibilityMapper.selectPage(page, wrapper);
+    }
 
     /**
      * 检查一组中药是否存在配伍禁忌
@@ -91,6 +111,26 @@ public class HerbIncompatibilityService {
                         .or()
                         .eq(HerbIncompatibility::getHerbB, herbName));
         return incompatibilityMapper.selectList(wrapper);
+    }
+
+    public HerbIncompatibility getById(Long id) {
+        return incompatibilityMapper.selectById(id);
+    }
+
+    public void add(HerbIncompatibility item) {
+        item.setCreatedAt(java.time.LocalDateTime.now());
+        item.setUpdatedAt(java.time.LocalDateTime.now());
+        item.setDeleted(0);
+        incompatibilityMapper.insert(item);
+    }
+
+    public void update(HerbIncompatibility item) {
+        item.setUpdatedAt(java.time.LocalDateTime.now());
+        incompatibilityMapper.updateById(item);
+    }
+
+    public void delete(Long id) {
+        incompatibilityMapper.deleteById(id);
     }
 
     /**

@@ -150,7 +150,61 @@ systemctl stop yf-pharmacy
 
 命名规范：`V{版本号}__{描述}.sql`
 
+### Flyway 常见问题
+
+**1. Validate failed: Migrations have failed validation**
+
+已应用的迁移文件被修改过（checksum 不匹配），需要执行 repair：
+
+```bash
+cd backend && mvn flyway:repair \
+  -Dflyway.url="jdbc:mysql://localhost:3306/yf_pharmacy?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&allowPublicKeyRetrieval=true&useSSL=false" \
+  -Dflyway.user=root \
+  -Dflyway.password="你的密码" \
+  -Dflyway.locations=classpath:db/migration \
+  -Dflyway.baselineOnMigrate=true \
+  -Dflyway.baselineVersion=0 -q
+```
+
+或者在服务器上直接更新 checksum（需先确认文件改动无害）：
+
+```sql
+-- 查看不匹配的版本
+SELECT version, description, checksum FROM flyway_schema_history WHERE success=1;
+```
+
+> 规则：已 apply 的迁移脚本不要再修改内容，需要改动请新建迁移。
+
+**2. MySQL 未启动导致 Communications link failure**
+
+确保 MySQL 先于应用启动。systemd 已配置 `After=mysql.service`，但如果 MySQL 启动慢可能仍会失败。可增加启动延迟：
+
+```bash
+# 在 [Service] 段加入
+ExecStartPre=/bin/sleep 5
+```
+
 ## 五、访问地址
 
 - 前端页面：`http://服务器IP:8888`
 - 后端 API：`http://服务器IP:8081/api`（内部，Nginx 代理）
+
+## 六、部署记录
+
+### 2026-03-16 - 知识库数据迁移 (V22-V31)
+
+**部署内容：**
+- V22: 200家药品生产企业种子数据
+- V23: 补充151味中药饮片的13个空字段
+- V24: 新增65味中药品种
+- V25-V31: 新增196种药品知识库（感冒退热、抗生素、心血管、降糖、消化、呼吸、神经、骨科、维生素、中成药、儿科、皮肤外用、眼耳鼻喉、泌尿、妇科、抗过敏）
+
+**遇到的问题：**
+
+1. **本地 Flyway 校验失败** - V3 迁移文件在之前被修改过导致 checksum 不匹配，通过 `mvn flyway:repair` 修复。服务器端未出现此问题（服务器已在之前的部署中同步过）。
+
+2. **本地 MySQL 未持久化运行** - 开发机 MySQL 未注册为 Windows 服务，手动启动 mysqld 后被 Maven flyway:repair 命令的连接关闭影响自动退出，需重新启动后才能运行 Spring Boot。生产服务器无此问题（systemd 管理）。
+
+3. **V24 数据截断警告** - `Data truncated for column 'dosage_min'`，部分中药的 dosage_min/max 超出字段精度。数据已入库但被截断，不影响功能，后续可调整字段精度。
+
+**部署结果：** 服务器 Flyway 成功执行 10 个迁移（V22-V31），应用正常启动，耗时 15.5s。

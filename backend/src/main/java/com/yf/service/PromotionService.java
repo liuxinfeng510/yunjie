@@ -4,7 +4,9 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.yf.entity.Drug;
 import com.yf.entity.Promotion;
+import com.yf.entity.Store;
 import com.yf.mapper.PromotionMapper;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +29,8 @@ import java.util.List;
 public class PromotionService {
 
     private final PromotionMapper promotionMapper;
+    private final StoreService storeService;
+    private final DrugService drugService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     /**
@@ -38,6 +42,7 @@ public class PromotionService {
         if (promotion.getPriority() == null) {
             promotion.setPriority(0);
         }
+        fillPromotionSnapshot(promotion);
         promotionMapper.insert(promotion);
         log.info("创建促销活动: name={}, type={}", promotion.getName(), promotion.getType());
         return promotion;
@@ -48,6 +53,7 @@ public class PromotionService {
      */
     @Transactional
     public Promotion update(Promotion promotion) {
+        fillPromotionSnapshot(promotion);
         promotionMapper.updateById(promotion);
         return promotion;
     }
@@ -237,6 +243,21 @@ public class PromotionService {
             this.promotionName = name;
             this.promotionType = type;
             this.discountAmount = discount;
+        }
+    }
+
+    private void fillPromotionSnapshot(Promotion promotion) {
+        if (promotion.getStoreId() != null) {
+            Store store = storeService.getById(promotion.getStoreId());
+            if (store != null) {
+                promotion.setStoreName(store.getName());
+            }
+        }
+        if (promotion.getGiftDrugId() != null) {
+            Drug drug = drugService.getById(promotion.getGiftDrugId());
+            if (drug != null) {
+                promotion.setGiftDrugName(drug.getGenericName());
+            }
         }
     }
 }

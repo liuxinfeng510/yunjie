@@ -48,4 +48,14 @@ public class StockOut extends BaseEntity {
      * 备注
      */
     private String remark;
+    
+    /**
+     * 门店名称（快照）
+     */
+    private String storeName;
+    
+    /**
+     * 目标门店名称（快照）
+     */
+    private String targetStoreName;
 }

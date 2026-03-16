@@ -46,6 +46,11 @@ public class DrugAcceptance extends BaseEntity {
     private Long supplierId;
     
     /**
+     * 供应商名称（快照）
+     */
+    private String supplierName;
+    
+    /**
      * 验收数量
      */
     private BigDecimal quantity;

@@ -1,5 +1,6 @@
 package com.yf.controller;
 
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.HerbIncompatibility;
 import com.yf.service.HerbIncompatibilityService;
 import com.yf.service.HerbIncompatibilityService.IncompatibilityCheckResult;
@@ -19,6 +20,18 @@ import java.util.Map;
 public class HerbIncompatibilityController {
 
     private final HerbIncompatibilityService incompatibilityService;
+
+    /**
+     * 分页查询配伍禁忌
+     */
+    @GetMapping("/page")
+    public ApiResponse<Page<HerbIncompatibility>> page(
+            @RequestParam(defaultValue = "1") int pageNum,
+            @RequestParam(defaultValue = "10") int pageSize,
+            @RequestParam(required = false) String herbName,
+            @RequestParam(required = false) String type) {
+        return ApiResponse.success(incompatibilityService.page(pageNum, pageSize, herbName, type));
+    }
 
     /**
      * 检查一组中药配伍
@@ -78,5 +91,29 @@ public class HerbIncompatibilityController {
     @GetMapping("/pregnancy")
     public ApiResponse<List<HerbIncompatibility>> getPregnancy() {
         return ApiResponse.success(incompatibilityService.getByType("pregnancy"));
+    }
+
+    @GetMapping("/{id}")
+    public ApiResponse<HerbIncompatibility> getById(@PathVariable Long id) {
+        return ApiResponse.success(incompatibilityService.getById(id));
+    }
+
+    @PostMapping
+    public ApiResponse<Void> add(@RequestBody HerbIncompatibility item) {
+        incompatibilityService.add(item);
+        return ApiResponse.success(null);
+    }
+
+    @PutMapping("/{id}")
+    public ApiResponse<Void> update(@PathVariable Long id, @RequestBody HerbIncompatibility item) {
+        item.setId(id);
+        incompatibilityService.update(item);
+        return ApiResponse.success(null);
+    }
+
+    @DeleteMapping("/{id}")
+    public ApiResponse<Void> delete(@PathVariable Long id) {
+        incompatibilityService.delete(id);
+        return ApiResponse.success(null);
     }
 }

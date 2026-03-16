@@ -18,6 +18,7 @@
           <el-button type="primary" @click="handleSearch">查询</el-button>
           <el-button @click="handleReset">重置</el-button>
           <el-button type="success" @click="handleAdd">新增会员</el-button>
+          <el-button type="warning" @click="importDialogVisible = true">批量导入</el-button>
         </el-form-item>
       </el-form>
 
@@ -253,13 +254,23 @@
         <el-button type="primary" @click="handlePointsSubmit">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 批量导入对话框 -->
+    <BatchImportDialog
+      v-model:visible="importDialogVisible"
+      title="批量导入会员"
+      :parse-api="parseMemberImport"
+      :execute-api="executeMemberImport"
+      @success="handleSearch"
+    />
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMemberPage, getMember, createMember, updateMember, getMemberPointsLog, addPoints, deductPoints } from '@/api/member'
+import { getMemberPage, getMember, createMember, updateMember, getMemberPointsLog, addPoints, deductPoints, parseMemberImport, executeMemberImport } from '@/api/member'
+import BatchImportDialog from '@/components/BatchImportDialog.vue'
 
 // 搜索表单
 const searchForm = reactive({
@@ -316,6 +327,9 @@ const pointsForm = reactive({
   remark: ''
 })
 const currentMemberId = ref(null)
+
+// 导入对话框
+const importDialogVisible = ref(false)
 
 // 等级标签类型
 const getLevelTagType = (levelId) => {
