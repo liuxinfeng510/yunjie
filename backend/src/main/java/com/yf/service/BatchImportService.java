@@ -8,8 +8,10 @@ import com.alibaba.excel.read.listener.ReadListener;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.yf.dto.*;
 import com.yf.entity.Drug;
+import com.yf.entity.DrugCategory;
 import com.yf.entity.Member;
 import com.yf.exception.BusinessException;
+import com.yf.mapper.DrugCategoryMapper;
 import com.yf.mapper.DrugMapper;
 import com.yf.mapper.MemberMapper;
 import lombok.RequiredArgsConstructor;
@@ -35,6 +37,7 @@ public class BatchImportService {
 
     private final MemberMapper memberMapper;
     private final DrugMapper drugMapper;
+    private final DrugCategoryMapper drugCategoryMapper;
     private final DrugService drugService;
 
     // fileToken -> filePath 映射
@@ -58,20 +61,30 @@ public class BatchImportService {
 
         // 药品字段别名
         DRUG_FIELDS.put("genericName", new FieldDef("通用名", true, "通用名", "通用名称", "药品名", "药品名称", "名称", "genericName"));
-        DRUG_FIELDS.put("tradeName", new FieldDef("商品名", false, "商品名", "商品名称", "品名", "tradeName"));
+        DRUG_FIELDS.put("tradeName", new FieldDef("商品名", false, "商品名", "商品名称", "品名", "tradeName", "本企业自定名称", "自定名称", "自定义名称"));
+        DRUG_FIELDS.put("categoryName", new FieldDef("药品分类", false, "药品分类", "分类", "类别", "药品类别", "category", "商品分类"));
         DRUG_FIELDS.put("specification", new FieldDef("规格", false, "规格", "spec", "specification"));
         DRUG_FIELDS.put("dosageForm", new FieldDef("剂型", false, "剂型", "剂形", "dosageForm"));
-        DRUG_FIELDS.put("manufacturer", new FieldDef("生产企业", false, "生产企业", "生产厂家", "生产厂商", "厂家", "厂商", "生产商", "manufacturer"));
-        DRUG_FIELDS.put("approvalNo", new FieldDef("批准文号", false, "批准文号", "国药准字", "文号", "approvalNo"));
+        DRUG_FIELDS.put("manufacturer", new FieldDef("生产企业", false, "生产企业", "生产厂家", "生产厂商", "厂家", "厂商", "生产商", "manufacturer", "制造商"));
+        DRUG_FIELDS.put("approvalNo", new FieldDef("批准文号", false, "批准文号", "国药准字", "文号", "approvalNo", "标准号", "注册证号", "注册号"));
         DRUG_FIELDS.put("barcode", new FieldDef("条形码", false, "条形码", "条码", "商品条码", "barcode", "ean"));
-        DRUG_FIELDS.put("originalCode", new FieldDef("原编号", false, "原编号", "原系统编号", "商品编号", "编号", "旧编号"));
+        DRUG_FIELDS.put("originalCode", new FieldDef("原编号", false, "原编号", "原系统编号", "商品编号", "编号", "旧编号", "商品编码"));
         DRUG_FIELDS.put("unit", new FieldDef("单位", false, "单位", "包装单位", "unit"));
-        DRUG_FIELDS.put("retailPrice", new FieldDef("零售价", false, "零售价", "售价", "商品零售价", "零售", "retail", "retailPrice"));
-        DRUG_FIELDS.put("purchasePrice", new FieldDef("采购价", false, "采购价", "进价", "进货价", "成本价", "purchasePrice"));
+        DRUG_FIELDS.put("retailPrice", new FieldDef("零售价", false, "零售价", "售价", "商品零售价", "零售", "retail", "retailPrice", "商品销售价", "销售价"));
+        DRUG_FIELDS.put("purchasePrice", new FieldDef("采购价", false, "采购价", "进价", "进货价", "成本价", "purchasePrice", "实际购价", "购价"));
         DRUG_FIELDS.put("memberPrice", new FieldDef("会员价", false, "会员价", "会员售价", "vip价", "memberPrice"));
         DRUG_FIELDS.put("otcType", new FieldDef("OTC类型", false, "OTC类型", "OTC", "处方类型", "药品类型"));
         DRUG_FIELDS.put("storageCondition", new FieldDef("储存条件", false, "储存条件", "储存", "贮藏", "存储条件"));
         DRUG_FIELDS.put("medicalInsurance", new FieldDef("医保类型", false, "医保类型", "医保", "医保编码"));
+        DRUG_FIELDS.put("validPeriod", new FieldDef("有效期", false, "有效期", "有效期(月)", "有效期月", "有效月数"));
+        DRUG_FIELDS.put("origin", new FieldDef("产地", false, "产地", "产地/来源", "来源"));
+        DRUG_FIELDS.put("marketingAuthHolder", new FieldDef("上市许可持有人", false, "上市许可持有人", "持有人", "MAH"));
+        DRUG_FIELDS.put("stockQuantity", new FieldDef("库存数量", false, "库存数量", "库存", "现有库存"));
+        DRUG_FIELDS.put("requireRealName", new FieldDef("实名登记", false, "实名登记", "实名", "需实名"));
+        DRUG_FIELDS.put("stockUpperLimit", new FieldDef("库存上限", false, "库存上限", "最大库存", "上限"));
+        DRUG_FIELDS.put("stockLowerLimit", new FieldDef("库存下限", false, "库存下限", "最小库存", "下限", "安全库存"));
+        DRUG_FIELDS.put("allowPriceAdjust", new FieldDef("销售可调价", false, "销售可调价", "可调价", "允许调价"));
+        DRUG_FIELDS.put("maintenanceMethod", new FieldDef("养护方式", false, "养护方式", "养护", "养护方法"));
     }
 
     // ========== 解析 Excel ==========
@@ -374,6 +387,44 @@ public class BatchImportService {
         AtomicInteger skip = new AtomicInteger(0);
         List<String> errors = Collections.synchronizedList(new ArrayList<>());
 
+        // 预加载药品分类缓存（名称 -> ID）
+        Map<String, Long> categoryCache = new HashMap<>();
+        List<DrugCategory> categories = drugCategoryMapper.selectList(
+                new LambdaQueryWrapper<DrugCategory>().eq(DrugCategory::getDeleted, 0));
+        for (DrugCategory cat : categories) {
+            categoryCache.put(cat.getName().trim(), cat.getId());
+        }
+
+        // 预加载已有原编号用于去重
+        Set<String> existingOriginalCodes = new HashSet<>();
+        if (request.isSkipDuplicate()) {
+            List<Drug> existingDrugs = drugMapper.selectList(
+                    new LambdaQueryWrapper<Drug>()
+                            .select(Drug::getOriginalCode));
+            for (Drug d : existingDrugs) {
+                if (StringUtils.hasText(d.getOriginalCode())) {
+                    existingOriginalCodes.add(d.getOriginalCode());
+                }
+            }
+        }
+
+        // 预生成药品编码前缀和起始序号
+        String dateStr = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
+        String codePrefix = "YP" + dateStr;
+        LambdaQueryWrapper<Drug> codeWrapper = new LambdaQueryWrapper<>();
+        codeWrapper.likeRight(Drug::getDrugCode, codePrefix).orderByDesc(Drug::getDrugCode).last("LIMIT 1");
+        Drug lastDrug = drugMapper.selectOne(codeWrapper);
+        AtomicInteger codeSeq = new AtomicInteger(1);
+        if (lastDrug != null && lastDrug.getDrugCode() != null && lastDrug.getDrugCode().length() >= 14) {
+            try {
+                codeSeq.set(Integer.parseInt(lastDrug.getDrugCode().substring(10)) + 1);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        // 批量收集待插入的药品
+        List<Drug> batchList = new ArrayList<>();
+        int BATCH_SIZE = 500;
+
         EasyExcel.read(filePath, new ReadListener<Map<Integer, String>>() {
             @Override
             public void invoke(Map<Integer, String> row, AnalysisContext context) {
@@ -389,33 +440,43 @@ public class BatchImportService {
                     String genericName = fieldValues.getOrDefault("genericName", "");
                     if (!StringUtils.hasText(genericName)) {
                         skip.incrementAndGet();
+                        errors.add("第" + rowNum + "行: 通用名为空，已跳过");
                         return;
                     }
 
-                    // 重复检查（按条形码）
-                    String barcode = fieldValues.getOrDefault("barcode", "");
-                    if (request.isSkipDuplicate() && StringUtils.hasText(barcode)) {
-                        LambdaQueryWrapper<Drug> w = new LambdaQueryWrapper<>();
-                        w.eq(Drug::getBarcode, barcode);
-                        if (drugMapper.selectCount(w) > 0) {
+                    // 重复检查 - 原编号去重
+                    String originalCode = fieldValues.getOrDefault("originalCode", "");
+                    if (request.isSkipDuplicate() && StringUtils.hasText(originalCode)) {
+                        if (existingOriginalCodes.contains(originalCode)) {
                             skip.incrementAndGet();
+                            errors.add("第" + rowNum + "行: 原编号[" + originalCode + "]重复，已跳过(" + genericName + ")");
                             return;
                         }
+                        existingOriginalCodes.add(originalCode);
                     }
 
                     // 构建 Drug 对象
                     Drug drug = new Drug();
-                    drug.setDrugCode(drugService.generateDrugCode());
+                    drug.setDrugCode(codePrefix + String.format("%04d", codeSeq.getAndIncrement()));
                     drug.setGenericName(genericName);
 
                     String tradeName = fieldValues.getOrDefault("tradeName", "");
                     drug.setTradeName(StringUtils.hasText(tradeName) ? tradeName : genericName);
 
+                    // 药品分类 -> categoryId（自动创建不存在的分类）
+                    String categoryName = fieldValues.getOrDefault("categoryName", "");
+                    if (StringUtils.hasText(categoryName)) {
+                        Long catId = drugService.getOrCreateCategoryId(categoryName.trim(), categoryCache);
+                        if (catId != null) {
+                            drug.setCategoryId(catId);
+                        }
+                    }
+
+                    String barcode = fieldValues.getOrDefault("barcode", "");
                     if (StringUtils.hasText(barcode)) {
                         drug.setBarcode(barcode);
                     }
 
-                    String originalCode = fieldValues.getOrDefault("originalCode", "");
                     if (StringUtils.hasText(originalCode)) {
                         drug.setOriginalCode(originalCode);
                     }
@@ -441,7 +502,7 @@ public class BatchImportService {
                     }
 
                     String unit = fieldValues.getOrDefault("unit", "");
-                    drug.setUnit(StringUtils.hasText(unit) ? unit : "盒");
+                    drug.setUnit(StringUtils.hasText(unit) ? drugService.normalizeUnit(unit) : "盒");
 
                     drug.setRetailPrice(parseBigDecimal(fieldValues.getOrDefault("retailPrice", "")));
                     drug.setPurchasePrice(parseBigDecimal(fieldValues.getOrDefault("purchasePrice", "")));
@@ -453,18 +514,70 @@ public class BatchImportService {
                     }
 
                     String storageCondition = fieldValues.getOrDefault("storageCondition", "");
-                    if (StringUtils.hasText(storageCondition)) {
-                        drug.setStorageCondition(storageCondition);
-                    }
+                    drug.setStorageCondition(drugService.convertStorageCondition(storageCondition));
 
                     String medicalInsurance = fieldValues.getOrDefault("medicalInsurance", "");
                     if (StringUtils.hasText(medicalInsurance)) {
                         drug.setMedicalInsurance(medicalInsurance);
                     }
 
-                    drug.setStatus("正常");
-                    drugMapper.insert(drug);
+                    String validPeriodStr = fieldValues.getOrDefault("validPeriod", "");
+                    if (StringUtils.hasText(validPeriodStr)) {
+                        try {
+                            drug.setValidPeriod(Integer.parseInt(validPeriodStr.replaceAll("[^0-9]", "")));
+                        } catch (NumberFormatException ignored) {}
+                    }
+
+                    String originVal = fieldValues.getOrDefault("origin", "");
+                    if (StringUtils.hasText(originVal)) {
+                        drug.setOrigin(originVal);
+                    }
+
+                    String mah = fieldValues.getOrDefault("marketingAuthHolder", "");
+                    if (StringUtils.hasText(mah)) {
+                        drug.setMarketingAuthHolder(mah);
+                    }
+
+                    String sqStr = fieldValues.getOrDefault("stockQuantity", "");
+                    if (StringUtils.hasText(sqStr)) {
+                        drug.setStockQuantity(parseBigDecimal(sqStr));
+                    }
+
+                    String requireRealNameStr = fieldValues.getOrDefault("requireRealName", "");
+                    if (StringUtils.hasText(requireRealNameStr)) {
+                        String v = requireRealNameStr.trim();
+                        drug.setRequireRealName("是".equals(v) || "true".equalsIgnoreCase(v) || "1".equals(v));
+                    }
+
+                    String stockUpperStr = fieldValues.getOrDefault("stockUpperLimit", "");
+                    if (StringUtils.hasText(stockUpperStr)) {
+                        try { drug.setStockUpperLimit((int) Double.parseDouble(stockUpperStr.trim())); } catch (NumberFormatException ignored) {}
+                    }
+
+                    String stockLowerStr = fieldValues.getOrDefault("stockLowerLimit", "");
+                    if (StringUtils.hasText(stockLowerStr)) {
+                        try { drug.setStockLowerLimit((int) Double.parseDouble(stockLowerStr.trim())); } catch (NumberFormatException ignored) {}
+                    }
+
+                    String allowPriceStr = fieldValues.getOrDefault("allowPriceAdjust", "");
+                    if (StringUtils.hasText(allowPriceStr)) {
+                        String v = allowPriceStr.trim();
+                        drug.setAllowPriceAdjust(!("否".equals(v) || "false".equalsIgnoreCase(v) || "0".equals(v)));
+                    }
+
+                    String maintenanceMethodStr = fieldValues.getOrDefault("maintenanceMethod", "");
+                    if (StringUtils.hasText(maintenanceMethodStr)) {
+                        drug.setMaintenanceMethod(maintenanceMethodStr);
+                    }
+
+                    drug.setStatus("启用");
+                    batchList.add(drug);
                     success.incrementAndGet();
+
+                    // 每 BATCH_SIZE 条批量插入一次
+                    if (batchList.size() >= BATCH_SIZE) {
+                        flushBatch(batchList, fail, success, errors);
+                    }
 
                 } catch (Exception e) {
                     fail.incrementAndGet();
@@ -474,6 +587,10 @@ public class BatchImportService {
 
             @Override
             public void doAfterAllAnalysed(AnalysisContext context) {
+                // 插入剩余数据
+                if (!batchList.isEmpty()) {
+                    flushBatch(batchList, fail, success, errors);
+                }
             }
         }).headRowNumber(1).sheet().doRead();
 
@@ -485,6 +602,22 @@ public class BatchImportService {
 
         cleanupFile(request.getFileToken());
         return response;
+    }
+
+    private void flushBatch(List<Drug> batchList, AtomicInteger fail, AtomicInteger success, List<String> errors) {
+        for (Drug drug : batchList) {
+            try {
+                drugMapper.insert(drug);
+            } catch (Exception e) {
+                fail.incrementAndGet();
+                success.decrementAndGet();
+                String name = drug.getGenericName() != null ? drug.getGenericName() : "未知";
+                String code = drug.getOriginalCode() != null ? drug.getOriginalCode() : (drug.getBarcode() != null ? drug.getBarcode() : "");
+                log.error("插入药品失败 [{}|{}]: {}", name, code, e.getMessage());
+                errors.add("插入失败[" + name + "|" + code + "]: " + e.getMessage());
+            }
+        }
+        batchList.clear();
     }
 
     // ========== 工具方法 ==========

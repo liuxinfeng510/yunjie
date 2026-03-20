@@ -8,7 +8,7 @@
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="queryForm" class="search-form">
         <el-form-item label="操作人">
-          <el-input v-model="queryForm.operatorName" placeholder="请输入操作人" clearable />
+          <el-input v-model="queryForm.operatorName" placeholder="请输入操作人" clearable @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="操作类型">
           <el-select v-model="queryForm.operationType" placeholder="请选择" clearable>
@@ -116,9 +116,11 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getAuditLogPage } from '@/api/system'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const detailVisible = ref(false)
 const currentLog = ref({})
 
@@ -195,6 +197,7 @@ const loadData = async () => {
     const res = await getAuditLogPage(params)
     tableData.value = res.data.records
     pagination.total = res.data.total
+    selectFirstRow()
   } catch (error) {
     ElMessage.error('加载审计日志失败')
   } finally {

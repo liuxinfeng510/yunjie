@@ -9,12 +9,15 @@
             placeholder="请输入供应商名称"
             clearable
             style="width: 200px;"
+            @keydown.enter.prevent="handleSearch"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
           />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px;">
-            <el-option label="启用" value="1" />
-            <el-option label="禁用" value="0" />
+            <el-option label="启用" value="active" />
+            <el-option label="禁用" value="inactive" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -31,7 +34,7 @@
       </div>
 
       <!-- 表格 -->
-      <el-table :data="tableData" v-loading="loading" border stripe>
+      <el-table ref="tableRef" :data="tableData" v-loading="loading" border stripe highlight-current-row>
         <el-table-column prop="name" label="供应商名称" width="200" show-overflow-tooltip />
         <el-table-column prop="shortName" label="简称" width="150" />
         <el-table-column prop="contactName" label="联系人" width="120" />
@@ -40,8 +43,8 @@
         <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 1 ? 'success' : 'info'">
-              {{ row.status === 1 ? '启用' : '禁用' }}
+            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
+              {{ row.status === 'active' ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
@@ -151,6 +154,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Edit, Delete } from '@element-plus/icons-vue'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 import {
   getSupplierPage,
   getSupplier,
@@ -168,6 +172,7 @@ const searchForm = reactive({
 // 表格数据
 const tableData = ref([])
 const loading = ref(false)
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 
 // 分页
 const pagination = reactive({
@@ -241,6 +246,7 @@ const loadData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.total = res.data.total || 0
+      selectFirstRow()
     }
   } catch (error) {
     ElMessage.error('加载数据失败')

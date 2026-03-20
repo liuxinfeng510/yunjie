@@ -159,6 +159,15 @@ public class QuickSetupService {
                 "boolean", "是否启用小票打印");
         sysConfigService.setValue("sale", "sale.member_points_ratio", "1",
                 "number", "会员积分比例（消费1元=N积分）");
+        sysConfigService.setValue("sale", "sale.receipt_paper_width", "58",
+                "string", "小票纸张宽度(58/80mm)");
+        sysConfigService.setValue("sale", "sale.receipt_shop_name", "",
+                "string", "小票店名(空则取企业名称)");
+        sysConfigService.setValue("sale", "sale.receipt_footer", "感谢您的光临！\n如有问题请保留此小票",
+                "string", "小票页脚文本");
+        sysConfigService.setValue("sale", "sale.receipt_fields",
+                "{\"header\":{\"shopName\":true,\"tenantName\":true,\"subtitle\":true},\"orderInfo\":{\"orderNo\":true,\"dateTime\":true,\"cashier\":true},\"memberInfo\":{\"memberName\":true,\"memberPhone\":true},\"itemDetail\":{\"drugName\":true,\"specification\":true,\"batchNo\":true,\"manufacturer\":true,\"unitPrice\":true},\"summary\":{\"itemCount\":true,\"totalAmount\":true,\"memberDiscount\":true,\"wholeDiscount\":true,\"manualDiscount\":true,\"payMethod\":true,\"cashInfo\":true},\"footer\":{\"footerText\":true}}",
+                "json", "小票打印字段配置");
 
         // 连锁模式专属配置
         if (isChain) {

@@ -1,5 +1,8 @@
 <template>
   <div class="health-profile-container">
+    <div v-if="fromPos" class="back-bar">
+      <el-button type="primary" plain size="small" @click="router.push({ path: '/sale/pos', query: { memberId: route.query.memberId } })">&larr; 返回收银台</el-button>
+    </div>
     <el-row :gutter="20">
       <!-- 左侧：会员搜索和基本信息 -->
       <el-col :span="8">
@@ -10,13 +13,22 @@
           
           <el-form :inline="true" @submit.prevent="searchMember">
             <el-form-item>
-              <el-input v-model="searchPhone" placeholder="手机号搜索" clearable>
+              <el-input v-model="searchKeyword" placeholder="姓名/拼音/手机号" clearable>
                 <template #append>
                   <el-button @click="searchMember" :icon="Search" />
                 </template>
               </el-input>
             </el-form-item>
           </el-form>
+
+          <!-- 搜索结果列表 -->
+          <div v-if="searchResults.length > 1" class="search-results">
+            <div v-for="m in searchResults" :key="m.id" class="search-result-item"
+                 :class="{ active: currentMember?.id === m.id }" @click="selectMember(m)">
+              <span class="result-name">{{ m.name }}</span>
+              <span class="result-phone">{{ m.phone }}</span>
+            </div>
+          </div>
 
           <div v-if="currentMember" class="member-info">
             <el-descriptions :column="1" border size="small">
@@ -223,15 +235,21 @@
 
 <script setup>
 import { ref, computed, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Search } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
-import { pageMemberList } from '@/api/member'
+import { pageMemberList, searchMembers } from '@/api/member'
 import { 
   getHealthProfile, updateHealthProfile, getHealthAnalysis, getMedicationAdvice,
   getMemberDiseases, createDiseaseRecord, updateDiseaseRecord 
 } from '@/api/health'
 
-const searchPhone = ref('')
+const route = useRoute()
+const router = useRouter()
+const fromPos = computed(() => route.query.from === 'pos')
+
+const searchKeyword = ref('')
+const searchResults = ref([])
 const currentMember = ref(null)
 const healthProfile = ref({})
 const healthAnalysis = ref(null)
@@ -253,22 +271,29 @@ const memberAge = computed(() => {
 })
 
 const searchMember = async () => {
-  if (!searchPhone.value) {
-    ElMessage.warning('请输入手机号')
+  if (!searchKeyword.value) {
+    ElMessage.warning('请输入姓名、拼音或手机号')
     return
   }
   try {
-    const res = await pageMemberList({ phone: searchPhone.value, current: 1, size: 1 })
-    if (res.data?.records?.length) {
-      currentMember.value = res.data.records[0]
-      loadMemberData(currentMember.value.id)
-    } else {
+    const res = await searchMembers(searchKeyword.value)
+    const list = res.data || []
+    searchResults.value = list
+    if (list.length === 1) {
+      selectMember(list[0])
+    } else if (list.length === 0) {
       ElMessage.warning('未找到会员')
       currentMember.value = null
     }
   } catch (error) {
     console.error('搜索会员失败', error)
   }
+}
+
+const selectMember = (member) => {
+  currentMember.value = member
+  searchResults.value = []
+  loadMemberData(member.id)
 }
 
 const loadMemberData = async (memberId) => {
@@ -378,6 +403,10 @@ const saveDisease = async () => {
 <style scoped lang="scss">
 .health-profile-container {
   padding: 20px;
+
+  .back-bar {
+    margin-bottom: 12px;
+  }
 }
 
 .member-card, .advice-card, .profile-card, .analysis-card, .disease-card {
@@ -445,5 +474,29 @@ const saveDisease = async () => {
 
 .frequent-drugs {
   margin-top: 10px;
+}
+
+.search-results {
+  max-height: 200px;
+  overflow-y: auto;
+  border: 1px solid #dcdfe6;
+  border-radius: 4px;
+  margin-bottom: 12px;
+}
+.search-result-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+  &:hover, &.active {
+    background-color: #ecf5ff;
+  }
+  .result-name {
+    font-weight: 500;
+  }
+  .result-phone {
+    color: #999;
+    font-size: 12px;
+  }
 }
 </style>

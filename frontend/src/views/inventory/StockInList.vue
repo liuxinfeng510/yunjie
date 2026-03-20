@@ -8,6 +8,9 @@
             placeholder="请输入入库单号"
             clearable
             @clear="handleSearch"
+            @keydown.enter.prevent="handleSearch"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
           />
         </el-form-item>
         <el-form-item label="状态">
@@ -60,10 +63,12 @@
       </div>
 
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         stripe
         border
+        highlight-current-row
         style="width: 100%"
       >
         <el-table-column prop="orderNo" label="入库单号" width="180" />
@@ -331,6 +336,7 @@
               value-format="YYYY-MM-DD"
               size="small"
               style="width: 100%"
+              @change="autoCalcExpireDate(row)"
             />
           </template>
         </el-table-column>
@@ -612,6 +618,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Search, Refresh, Plus, Delete, MagicStick, UploadFilled, Warning, Loading, Picture, Document } from '@element-plus/icons-vue'
 import SupplierSelect from '@/components/SupplierSelect.vue'
 import TraceCodeInputDialog from '@/components/TraceCodeInputDialog.vue'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 import {
   getStockInPage,
   getStockIn,
@@ -635,6 +642,7 @@ const searchForm = reactive({
 // 表格数据
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = reactive({
   current: 1,
   size: 10,
@@ -737,6 +745,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       pagination.total = res.data.total
+      selectFirstRow()
     }
   } catch (error) {
     ElMessage.error('获取数据失败')
@@ -933,6 +942,7 @@ const handleDrugSelect = (drug, row) => {
   row.manufacturer = drug.manufacturer || ''
   row.unit = drug.unit || ''
   row.purchasePrice = drug.purchasePrice || 0
+  row.validPeriod = drug.validPeriod || null
   recalcAmount(row)
 }
 
@@ -951,7 +961,8 @@ const handleAddRow = () => {
     unit: '',
     purchasePrice: 0,
     amount: 0,
-    traceCodes: []
+    traceCodes: [],
+    validPeriod: null
   })
 }
 
@@ -976,6 +987,18 @@ const handleTraceConfirm = (codes) => {
 // 重算行金额
 const recalcAmount = (row) => {
   row.amount = parseFloat(((row.quantity || 0) * (row.purchasePrice || 0)).toFixed(2))
+}
+
+// 根据生产日期 + 有效期(月) 自动计算有效期至
+const autoCalcExpireDate = (row) => {
+  if (row.produceDate && row.validPeriod && row.validPeriod > 0) {
+    const d = new Date(row.produceDate)
+    d.setMonth(d.getMonth() + row.validPeriod)
+    const yyyy = d.getFullYear()
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    row.expireDate = `${yyyy}-${mm}-${dd}`
+  }
 }
 
 // 提交表单

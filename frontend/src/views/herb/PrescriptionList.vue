@@ -8,6 +8,9 @@
             placeholder="请输入处方号"
             clearable
             @clear="handleSearch"
+            @keydown.enter.prevent="handleSearch"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
           />
         </el-form-item>
         <el-form-item label="患者姓名">
@@ -16,6 +19,9 @@
             placeholder="请输入患者姓名"
             clearable
             @clear="handleSearch"
+            @keydown.enter.prevent="handleSearch"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
           />
         </el-form-item>
         <el-form-item label="开方医师">
@@ -24,6 +30,9 @@
             placeholder="请输入医师姓名"
             clearable
             @clear="handleSearch"
+            @keydown.enter.prevent="handleSearch"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
           />
         </el-form-item>
         <el-form-item label="处方状态">
@@ -62,10 +71,12 @@
       </div>
 
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         stripe
         border
+        highlight-current-row
         style="width: 100%"
       >
         <el-table-column prop="prescriptionNo" label="处方号" width="180" />
@@ -294,6 +305,7 @@ import {
   getPrescription,
   createPrescription
 } from '@/api/herb'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 // 搜索表单
 const searchForm = reactive({
@@ -306,6 +318,7 @@ const searchForm = reactive({
 // 表格数据
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = reactive({
   current: 1,
   size: 10,
@@ -363,6 +376,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       pagination.total = res.data.total
+      selectFirstRow()
     }
   } catch (error) {
     ElMessage.error('获取数据失败')

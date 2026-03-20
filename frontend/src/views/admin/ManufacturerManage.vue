@@ -12,14 +12,14 @@
 
       <el-form :inline="true" :model="query" @submit.prevent="loadData">
         <el-form-item label="搜索">
-          <el-input v-model="query.keyword" placeholder="企业名称/简称" clearable style="width: 240px;" />
+          <el-input v-model="query.keyword" placeholder="企业名称/简称" clearable style="width: 240px;" @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" @click="loadData">搜索</el-button>
         </el-form-item>
       </el-form>
 
-      <el-table :data="list" v-loading="loading" stripe border>
+      <el-table ref="tableRef" :data="list" v-loading="loading" stripe border highlight-current-row>
         <el-table-column prop="id" label="ID" width="70" />
         <el-table-column prop="name" label="企业名称" min-width="200" />
         <el-table-column prop="shortName" label="简称" width="120" />
@@ -84,12 +84,14 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getManufacturerPage, createManufacturer, updateManufacturer, deleteManufacturer } from '@/api/drug'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const list = ref([])
 const total = ref(0)
 const query = ref({ keyword: '', pageNum: 1, pageSize: 20 })
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(list)
 
 const dialogVisible = ref(false)
 const isEdit = ref(false)
@@ -108,6 +110,7 @@ async function loadData() {
     if (res.code === 200) {
       list.value = res.data?.records || []
       total.value = res.data?.total || 0
+      selectFirstRow()
     }
   } finally {
     loading.value = false

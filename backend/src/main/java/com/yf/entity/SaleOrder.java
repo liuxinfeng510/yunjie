@@ -1,5 +1,6 @@
 package com.yf.entity;
 
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableName;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
@@ -78,4 +79,27 @@ public class SaleOrder extends BaseEntity {
      * 备注
      */
     private String remark;
+
+    /**
+     * 中药副数
+     */
+    private Integer herbDoseCount;
+
+    // ========== 非数据库字段 ==========
+
+    /** 会员名称 */
+    @TableField(exist = false)
+    private String memberName;
+
+    /** 收银员名称 */
+    @TableField(exist = false)
+    private String cashierName;
+
+    /** 支付方式（前端展示用） */
+    @TableField(exist = false)
+    private String paymentMethod;
+
+    /** 创建时间（前端展示用） */
+    @TableField(exist = false)
+    private String createTime;
 }

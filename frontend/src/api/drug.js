@@ -27,7 +27,7 @@ export function parseDrugImport(formData) {
   })
 }
 export function executeDrugImport(data) {
-  return request.post('/drug/import/execute', data, { timeout: 120000 })
+  return request.post('/drug/import/execute', data, { timeout: 600000 })
 }
 
 // 字典项

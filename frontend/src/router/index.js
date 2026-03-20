@@ -223,6 +223,12 @@ const routes = [
         component: () => import('@/views/sale/DrugCombination.vue'),
         meta: { title: '组合推荐' }
       },
+      {
+        path: 'sale/reconciliation',
+        name: 'Reconciliation',
+        component: () => import('@/views/sale/Reconciliation.vue'),
+        meta: { title: '日终对账' }
+      },
       // 会员管理
       {
         path: 'member',
@@ -254,6 +260,12 @@ const routes = [
         component: () => import('@/views/member/MedicationReminder.vue'),
         meta: { title: '用药提醒' }
       },
+      {
+        path: 'member/purchase-history',
+        name: 'PurchaseHistory',
+        component: () => import('@/views/member/PurchaseHistory.vue'),
+        meta: { title: '购药记录' }
+      },
       // 首营管理
       {
         path: 'first-marketing/supplier',
@@ -266,6 +278,25 @@ const routes = [
         name: 'FirstMarketingDrug',
         component: () => import('@/views/first-marketing/FirstMarketingDrugList.vue'),
         meta: { title: '首营品种' }
+      },
+      // 经营历程
+      {
+        path: 'business-history/purchase',
+        name: 'PurchaseQuery',
+        component: () => import('@/views/business-history/PurchaseQuery.vue'),
+        meta: { title: '进货查询', icon: 'Notebook' }
+      },
+      {
+        path: 'business-history/sales',
+        name: 'SalesQuery',
+        component: () => import('@/views/business-history/SalesQuery.vue'),
+        meta: { title: '销售查询' }
+      },
+      {
+        path: 'business-history/inventory',
+        name: 'InventoryQuery',
+        component: () => import('@/views/business-history/InventoryQuery.vue'),
+        meta: { title: '存货查询' }
       },
       // GSP合规
       {

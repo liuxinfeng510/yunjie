@@ -9,7 +9,7 @@
       </template>
 
       <el-form :inline="true" :model="queryForm" class="search-form">
-        <el-form-item label="培训主题"><el-input v-model="queryForm.title" placeholder="请输入培训主题" clearable /></el-form-item>
+        <el-form-item label="培训主题"><el-input v-model="queryForm.title" placeholder="请输入培训主题" clearable @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" /></el-form-item>
         <el-form-item label="培训类型">
           <el-select v-model="queryForm.type" placeholder="请选择" clearable>
             <el-option label="GSP法规" value="gsp" />
@@ -99,10 +99,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getTrainingPage, createTraining, updateTraining } from '@/api/gsp'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const staffList = ref([{ id: 1, name: '张三' }, { id: 2, name: '李四' }, { id: 3, name: '王五' }])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -120,7 +122,7 @@ const getTypeName = (t) => typeMap[t] || t
 const getStatusName = (s) => statusMap[s] || s
 const getStatusColor = (s) => statusColorMap[s] || 'info'
 
-const loadData = async () => { loading.value = true; try { const res = await getTrainingPage({ current: pagination.current, size: pagination.size, ...queryForm }); tableData.value = res.data.records; pagination.total = res.data.total } catch (e) { ElMessage.error('加载失败') } finally { loading.value = false } }
+const loadData = async () => { loading.value = true; try { const res = await getTrainingPage({ current: pagination.current, size: pagination.size, ...queryForm }); tableData.value = res.data.records; pagination.total = res.data.total; selectFirstRow() } catch (e) { ElMessage.error('加载失败') } finally { loading.value = false } }
 const resetQuery = () => { queryForm.title = ''; queryForm.type = ''; queryForm.status = ''; pagination.current = 1; loadData() }
 const handleAdd = () => { Object.assign(form, { id: null, title: '', type: '', trainer: '', trainingDate: '', duration: 2, content: '', participants: [] }); dialogTitle.value = '新增培训'; dialogVisible.value = true }
 const handleEdit = (row) => { Object.assign(form, row); dialogTitle.value = '编辑培训'; dialogVisible.value = true }

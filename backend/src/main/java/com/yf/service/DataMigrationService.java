@@ -13,6 +13,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.File;
@@ -34,10 +35,14 @@ public class DataMigrationService {
 
     private final DataMigrationTaskMapper taskMapper;
     private final DrugMapper drugMapper;
+    private final DrugBatchMapper drugBatchMapper;
     private final HerbMapper herbMapper;
     private final MemberMapper memberMapper;
     private final SupplierMapper supplierMapper;
     private final InventoryMapper inventoryMapper;
+    private final DrugCategoryMapper drugCategoryMapper;
+    private final StoreMapper storeMapper;
+    private final DrugService drugService;
 
     private static final int MAX_SKIP_EXAMPLES = 50;
 
@@ -322,20 +327,38 @@ public class DataMigrationService {
 
         Map<String, List<String>> fieldAliases = new LinkedHashMap<>();
         fieldAliases.put("genericName", Arrays.asList("通用名", "药品名称", "名称", "药名", "品名", "通用名称", "genericname", "name"));
-        fieldAliases.put("tradeName", Arrays.asList("商品名", "商品名称", "tradename", "商品"));
+        fieldAliases.put("tradeName", Arrays.asList("商品名", "商品名称", "tradename", "商品", "本企业自定名称", "自定名称", "自定义名称"));
         fieldAliases.put("specification", Arrays.asList("规格", "spec", "specification"));
         fieldAliases.put("dosageForm", Arrays.asList("剂型", "dosageform", "剂形"));
-        fieldAliases.put("manufacturer", Arrays.asList("厂家", "生产厂家", "生产厂商", "生产企业", "manufacturer", "厂商"));
-        fieldAliases.put("approvalNo", Arrays.asList("批准文号", "国药准字", "approvalno", "文号"));
+        fieldAliases.put("manufacturer", Arrays.asList("厂家", "生产厂家", "生产厂商", "生产企业", "manufacturer", "厂商", "制造商", "生产商"));
+        fieldAliases.put("approvalNo", Arrays.asList("批准文号", "国药准字", "approvalno", "文号", "标准号", "注册证号", "注册号"));
         fieldAliases.put("barcode", Arrays.asList("条形码", "条码", "barcode", "商品条码", "ean"));
-        fieldAliases.put("originalCode", Arrays.asList("原编号", "原系统编号", "商品编号", "编号", "旧编号"));
+        fieldAliases.put("originalCode", Arrays.asList("原编号", "原系统编号", "商品编号", "编号", "旧编号", "商品编码"));
         fieldAliases.put("unit", Arrays.asList("单位", "unit", "包装单位", "计量单位"));
-        fieldAliases.put("retailPrice", Arrays.asList("零售价", "售价", "商品零售价", "retail", "retailprice", "销售价"));
-        fieldAliases.put("purchasePrice", Arrays.asList("采购价", "进价", "进货价", "purchase", "purchaseprice", "成本价"));
+        fieldAliases.put("retailPrice", Arrays.asList("零售价", "售价", "商品零售价", "retail", "retailprice", "销售价", "商品销售价"));
+        fieldAliases.put("purchasePrice", Arrays.asList("采购价", "进价", "进货价", "purchase", "purchaseprice", "成本价", "实际购价", "购价"));
         fieldAliases.put("memberPrice", Arrays.asList("会员价", "memberprice", "vip价"));
         fieldAliases.put("storageCondition", Arrays.asList("储存条件", "存储条件", "storage", "贮藏"));
         fieldAliases.put("otcType", Arrays.asList("otc类型", "otc", "处方类型"));
         fieldAliases.put("medicalInsurance", Arrays.asList("医保类型", "医保", "医保编码"));
+        fieldAliases.put("validPeriod", Arrays.asList("有效期", "有效期(月)", "有效月数"));
+        fieldAliases.put("origin", Arrays.asList("产地", "产地/来源", "来源"));
+        fieldAliases.put("marketingAuthHolder", Arrays.asList("上市许可持有人", "持有人", "MAH"));
+        fieldAliases.put("stockQuantity", Arrays.asList("库存数量", "库存", "现有库存"));
+        fieldAliases.put("categoryName", Arrays.asList("商品分类", "药品分类", "分类", "类别", "category"));
+        fieldAliases.put("requireRealName", Arrays.asList("实名登记", "实名", "需实名"));
+        fieldAliases.put("stockUpperLimit", Arrays.asList("库存上限", "最大库存", "上限"));
+        fieldAliases.put("stockLowerLimit", Arrays.asList("库存下限", "最小库存", "下限", "安全库存"));
+        fieldAliases.put("allowPriceAdjust", Arrays.asList("销售可调价", "可调价", "允许调价"));
+        fieldAliases.put("maintenanceMethod", Arrays.asList("养护方式", "养护", "养护方法"));
+
+        // 预加载药品分类缓存（名称 -> ID）
+        Map<String, Long> categoryCache = new HashMap<>();
+        List<DrugCategory> categories = drugCategoryMapper.selectList(
+                new LambdaQueryWrapper<DrugCategory>().eq(DrugCategory::getDeleted, 0));
+        for (DrugCategory cat : categories) {
+            categoryCache.put(cat.getName().trim(), cat.getId());
+        }
 
         Map<Integer, String> columnFieldMap = new HashMap<>();
 
@@ -364,22 +387,22 @@ public class DataMigrationService {
                     String memberPriceStr = getFieldValue(row, columnFieldMap, "memberPrice");
                     String storageCondition = getFieldValue(row, columnFieldMap, "storageCondition");
                     String otcType = getFieldValue(row, columnFieldMap, "otcType");
+                    String medicalInsurance = getFieldValue(row, columnFieldMap, "medicalInsurance");
+                    String validPeriodStr = getFieldValue(row, columnFieldMap, "validPeriod");
+                    String originVal = getFieldValue(row, columnFieldMap, "origin");
+                    String marketingAuthHolder = getFieldValue(row, columnFieldMap, "marketingAuthHolder");
+                    String stockQuantityStr = getFieldValue(row, columnFieldMap, "stockQuantity");
+                    String categoryName = getFieldValue(row, columnFieldMap, "categoryName");
+                    String requireRealNameStr = getFieldValue(row, columnFieldMap, "requireRealName");
+                    String stockUpperLimitStr = getFieldValue(row, columnFieldMap, "stockUpperLimit");
+                    String stockLowerLimitStr = getFieldValue(row, columnFieldMap, "stockLowerLimit");
+                    String allowPriceAdjustStr = getFieldValue(row, columnFieldMap, "allowPriceAdjust");
+                    String maintenanceMethodVal = getFieldValue(row, columnFieldMap, "maintenanceMethod");
 
                     if (genericName == null || genericName.isEmpty()) {
                         skip.incrementAndGet();
                         skipTracker.record(total.get(), "药品名称为空", null);
                         return;
-                    }
-
-                    // 检查重复
-                    if (barcode != null && !barcode.isEmpty()) {
-                        LambdaQueryWrapper<Drug> w = new LambdaQueryWrapper<>();
-                        w.eq(Drug::getBarcode, barcode);
-                        if (drugMapper.selectCount(w) > 0) {
-                            skip.incrementAndGet();
-                            skipTracker.record(total.get(), "条形码重复", barcode);
-                            return;
-                        }
                     }
 
                     Drug drug = new Drug();
@@ -391,12 +414,53 @@ public class DataMigrationService {
                     drug.setApprovalNo(approvalNo);
                     drug.setBarcode(barcode);
                     drug.setOriginalCode(originalCode);
-                    drug.setUnit(unit != null ? unit : "盒");
+                    drug.setUnit(drugService.normalizeUnit(unit != null ? unit : "盒"));
                     drug.setRetailPrice(parseBigDecimal(retailPriceStr));
                     drug.setPurchasePrice(parseBigDecimal(purchasePriceStr));
                     drug.setMemberPrice(parseBigDecimal(memberPriceStr));
-                    drug.setStorageCondition(storageCondition);
+                    drug.setStorageCondition(drugService.convertStorageCondition(storageCondition));
                     drug.setOtcType(otcType);
+                    if (StringUtils.hasText(medicalInsurance)) {
+                        drug.setMedicalInsurance(medicalInsurance);
+                    }
+                    if (StringUtils.hasText(validPeriodStr)) {
+                        try {
+                            drug.setValidPeriod(Integer.parseInt(validPeriodStr.replaceAll("[^0-9]", "")));
+                        } catch (NumberFormatException ignored) {}
+                    }
+                    if (StringUtils.hasText(originVal)) {
+                        drug.setOrigin(originVal);
+                    }
+                    if (StringUtils.hasText(marketingAuthHolder)) {
+                        drug.setMarketingAuthHolder(marketingAuthHolder);
+                    }
+                    if (StringUtils.hasText(stockQuantityStr)) {
+                        drug.setStockQuantity(parseBigDecimal(stockQuantityStr));
+                    }
+                    if (StringUtils.hasText(requireRealNameStr)) {
+                        String v = requireRealNameStr.trim();
+                        drug.setRequireRealName("是".equals(v) || "true".equalsIgnoreCase(v) || "1".equals(v));
+                    }
+                    if (StringUtils.hasText(stockUpperLimitStr)) {
+                        try { drug.setStockUpperLimit((int) Double.parseDouble(stockUpperLimitStr.trim())); } catch (NumberFormatException ignored) {}
+                    }
+                    if (StringUtils.hasText(stockLowerLimitStr)) {
+                        try { drug.setStockLowerLimit((int) Double.parseDouble(stockLowerLimitStr.trim())); } catch (NumberFormatException ignored) {}
+                    }
+                    if (StringUtils.hasText(allowPriceAdjustStr)) {
+                        String v = allowPriceAdjustStr.trim();
+                        drug.setAllowPriceAdjust(!("否".equals(v) || "false".equalsIgnoreCase(v) || "0".equals(v)));
+                    }
+                    if (StringUtils.hasText(maintenanceMethodVal)) {
+                        drug.setMaintenanceMethod(maintenanceMethodVal);
+                    }
+                    // 药品分类 -> categoryId（自动创建不存在的分类）
+                    if (StringUtils.hasText(categoryName)) {
+                        Long catId = drugService.getOrCreateCategoryId(categoryName.trim(), categoryCache);
+                        if (catId != null) {
+                            drug.setCategoryId(catId);
+                        }
+                    }
                     drug.setStatus("启用");
 
                     drugMapper.insert(drug);
@@ -725,14 +789,97 @@ public class DataMigrationService {
         StringBuilder errorLog = new StringBuilder();
         SkipTracker skipTracker = new SkipTracker();
 
+        // ===== 扩展字段别名映射，覆盖Excel全部20列 =====
         Map<String, List<String>> fieldAliases = new LinkedHashMap<>();
-        fieldAliases.put("drugCode", Arrays.asList("药品编码", "编码", "drugcode", "条码", "barcode", "条形码", "药品编号", "商品编号"));
-        fieldAliases.put("drugName", Arrays.asList("药品名称", "商品名称", "品名", "通用名", "名称", "药品名"));
+        fieldAliases.put("drugCode", Arrays.asList("药品编码", "编码", "drugcode", "药品编号", "商品编号", "商品编码"));
+        fieldAliases.put("genericName", Arrays.asList("通用名", "药品名称", "品名", "名称", "药品名", "通用名称"));
+        fieldAliases.put("tradeName", Arrays.asList("商品名", "商品名称", "商品"));
+        fieldAliases.put("specification", Arrays.asList("规格", "spec", "specification"));
+        fieldAliases.put("manufacturer", Arrays.asList("生产企业", "生产厂家", "生产厂商", "厂家", "厂商", "制造商", "生产商"));
+        fieldAliases.put("unit", Arrays.asList("单位", "unit", "计量单位", "包装单位"));
+        fieldAliases.put("saleStatus", Arrays.asList("销售状态", "状态", "批次状态"));
+        fieldAliases.put("expiryStatus", Arrays.asList("效期状态"));
         fieldAliases.put("batchNo", Arrays.asList("批号", "批次号", "batchno", "生产批号"));
-        fieldAliases.put("quantity", Arrays.asList("数量", "库存数量", "quantity", "库存量", "在库数量"));
+        fieldAliases.put("produceDate", Arrays.asList("生产日期", "producedate", "生产时间"));
+        fieldAliases.put("expireDate", Arrays.asList("有效期", "有效期至", "失效日期", "expiredate", "效期"));
+        fieldAliases.put("packQuantity", Arrays.asList("装量数", "装量", "包装数量"));
+        fieldAliases.put("retailPrice", Arrays.asList("销售价格", "零售价", "售价", "销售价"));
+        fieldAliases.put("retailPriceTotal", Arrays.asList("销售价格总值", "销售总值", "销售总额", "零售价金额"));
+        fieldAliases.put("purchaseDate", Arrays.asList("进价日期", "采购日期", "进货日期", "入库日期"));
+        fieldAliases.put("remainQuantity", Arrays.asList("剩余库存数", "剩余库存", "剩余数量"));
+        fieldAliases.put("quantity", Arrays.asList("在库数量", "库存数量", "数量", "quantity", "库存量", "现有库存"));
+        fieldAliases.put("factoryName", Arrays.asList("生产厂商2", "厂商2"));
+        fieldAliases.put("belongTo", Arrays.asList("所属", "所属门店", "归属"));
         fieldAliases.put("costPrice", Arrays.asList("进价", "成本价", "costprice", "采购价", "进货价"));
-        fieldAliases.put("unit", Arrays.asList("单位", "unit", "计量单位"));
+        fieldAliases.put("barcode", Arrays.asList("条形码", "条码", "barcode", "商品条码"));
         fieldAliases.put("location", Arrays.asList("货位", "库位", "location", "存放位置", "储位"));
+        fieldAliases.put("supplierName", Arrays.asList("供应商", "供应商名称", "供应单位", "供货商"));
+
+        // ===== 预加载所有药品到内存Map，提升匹配性能 =====
+        List<Drug> allDrugs = drugMapper.selectList(new LambdaQueryWrapper<Drug>().eq(Drug::getDeleted, 0));
+        Map<String, Drug> originalCodeMap = new HashMap<>();
+        Map<String, Drug> drugCodeMap = new HashMap<>();
+        Map<String, Drug> barcodeMap = new HashMap<>();
+        Map<String, Drug> genericNameMap = new HashMap<>();
+        Map<String, Drug> tradeNameMap = new HashMap<>();
+        // 以 genericName+specification 组合作为精确匹配key
+        Map<String, Drug> nameSpecMap = new HashMap<>();
+
+        for (Drug d : allDrugs) {
+            if (d.getOriginalCode() != null && !d.getOriginalCode().isEmpty()) {
+                originalCodeMap.put(d.getOriginalCode().trim(), d);
+            }
+            if (d.getDrugCode() != null && !d.getDrugCode().isEmpty()) {
+                drugCodeMap.put(d.getDrugCode().trim(), d);
+            }
+            if (d.getBarcode() != null && !d.getBarcode().isEmpty()) {
+                barcodeMap.put(d.getBarcode().trim(), d);
+            }
+            if (d.getGenericName() != null && !d.getGenericName().isEmpty()) {
+                genericNameMap.putIfAbsent(d.getGenericName().trim(), d);
+                if (d.getSpecification() != null && !d.getSpecification().isEmpty()) {
+                    String key = d.getGenericName().trim() + "||" + d.getSpecification().trim();
+                    nameSpecMap.putIfAbsent(key, d);
+                }
+            }
+            if (d.getTradeName() != null && !d.getTradeName().isEmpty()) {
+                tradeNameMap.putIfAbsent(d.getTradeName().trim(), d);
+            }
+        }
+        log.info("预加载药品数量: {}, originalCodeMap={}, drugCodeMap={}, barcodeMap={}, genericNameMap={}, tradeNameMap={}",
+                allDrugs.size(), originalCodeMap.size(), drugCodeMap.size(),
+                barcodeMap.size(), genericNameMap.size(), tradeNameMap.size());
+
+        // ===== 获取默认门店ID =====
+        Store defaultStore = storeMapper.selectOne(new LambdaQueryWrapper<Store>()
+                .eq(Store::getDeleted, 0).orderByAsc(Store::getId).last("LIMIT 1"));
+        Long defaultStoreId = defaultStore != null ? defaultStore.getId() : null;
+        log.info("默认门店: id={}, name={}", defaultStoreId, defaultStore != null ? defaultStore.getName() : "无");
+
+        // ===== 预加载供应商缓存（名称 -> ID） =====
+        List<Supplier> allSuppliers = supplierMapper.selectList(new LambdaQueryWrapper<Supplier>().eq(Supplier::getDeleted, 0));
+        Map<String, Long> supplierCache = new HashMap<>();
+        for (Supplier s : allSuppliers) {
+            if (s.getName() != null && !s.getName().isEmpty()) {
+                supplierCache.put(s.getName().trim(), s.getId());
+            }
+        }
+        log.info("预加载供应商数量: {}", supplierCache.size());
+
+        // ===== 预加载已有批次，避免重复创建 =====
+        List<DrugBatch> existingBatches = drugBatchMapper.selectList(new LambdaQueryWrapper<DrugBatch>().eq(DrugBatch::getDeleted, 0));
+        // key: drugId + "||" + batchNo
+        Map<String, DrugBatch> batchCache = new HashMap<>();
+        for (DrugBatch b : existingBatches) {
+            if (b.getBatchNo() != null && !b.getBatchNo().isEmpty()) {
+                batchCache.put(b.getDrugId() + "||" + b.getBatchNo().trim(), b);
+            }
+        }
+        log.info("预加载已有批次数量: {}", batchCache.size());
+
+        // 统计计数器
+        AtomicInteger batchCreated = new AtomicInteger(0);
+        AtomicInteger priceUpdated = new AtomicInteger(0);
 
         Map<Integer, String> columnFieldMap = new HashMap<>();
 
@@ -741,6 +888,13 @@ public class DataMigrationService {
             public void invokeHeadMap(Map<Integer, String> headMap, AnalysisContext context) {
                 matchColumns(headMap, fieldAliases, columnFieldMap);
                 log.info("库存导入字段匹配结果: {}", columnFieldMap);
+
+                // 检查必要字段是否匹配成功
+                boolean hasDrugCode = columnFieldMap.containsValue("drugCode");
+                boolean hasGenericName = columnFieldMap.containsValue("genericName");
+                if (!hasDrugCode && !hasGenericName) {
+                    log.warn("未匹配到药品编码或通用名列，导入可能无法正确关联药品");
+                }
             }
 
             @Override
@@ -748,64 +902,150 @@ public class DataMigrationService {
                 total.incrementAndGet();
                 try {
                     String drugCode = getFieldValue(row, columnFieldMap, "drugCode");
-                    String drugName = getFieldValue(row, columnFieldMap, "drugName");
+                    String genericName = getFieldValue(row, columnFieldMap, "genericName");
+                    String tradeName = getFieldValue(row, columnFieldMap, "tradeName");
+                    String specification = getFieldValue(row, columnFieldMap, "specification");
                     String batchNo = getFieldValue(row, columnFieldMap, "batchNo");
+                    String produceDateStr = getFieldValue(row, columnFieldMap, "produceDate");
+                    String expireDateStr = getFieldValue(row, columnFieldMap, "expireDate");
                     String quantityStr = getFieldValue(row, columnFieldMap, "quantity");
+                    String remainQuantityStr = getFieldValue(row, columnFieldMap, "remainQuantity");
+                    String retailPriceStr = getFieldValue(row, columnFieldMap, "retailPrice");
                     String costPriceStr = getFieldValue(row, columnFieldMap, "costPrice");
                     String unit = getFieldValue(row, columnFieldMap, "unit");
                     String location = getFieldValue(row, columnFieldMap, "location");
+                    String barcodeVal = getFieldValue(row, columnFieldMap, "barcode");
+                    String supplierNameVal = getFieldValue(row, columnFieldMap, "supplierName");
 
-                    if ((drugCode == null || drugCode.isEmpty()) && (drugName == null || drugName.isEmpty())) {
+                    // 如果 quantity 为空，尝试用 remainQuantity
+                    if ((quantityStr == null || quantityStr.isEmpty()) && remainQuantityStr != null && !remainQuantityStr.isEmpty()) {
+                        quantityStr = remainQuantityStr;
+                    }
+
+                    if ((drugCode == null || drugCode.isEmpty()) && (genericName == null || genericName.isEmpty())) {
                         skip.incrementAndGet();
-                        skipTracker.record(total.get(), "药品编码和名称均为空", null);
+                        skipTracker.record(total.get(), "药品编码和通用名均为空", null);
                         return;
                     }
 
-                    // 查找药品：依次尝试 drugCode -> barcode -> originalCode -> drugName -> genericName(drugCode)
+                    // ===== 5级药品匹配策略（优先originalCode） =====
                     Drug drug = null;
-                    String searchKey = drugCode != null && !drugCode.isEmpty() ? drugCode : drugName;
+                    String searchKey = drugCode != null && !drugCode.isEmpty() ? drugCode : genericName;
+
                     if (drugCode != null && !drugCode.isEmpty()) {
-                        // 1. 尝试用药品编码查找
-                        LambdaQueryWrapper<Drug> dw = new LambdaQueryWrapper<>();
-                        dw.eq(Drug::getDrugCode, drugCode);
-                        drug = drugMapper.selectOne(dw);
+                        String code = drugCode.trim();
+                        // 1. 优先匹配 originalCode（旧系统编号，最可靠）
+                        drug = originalCodeMap.get(code);
                         if (drug == null) {
-                            // 2. 尝试用条形码查找
-                            LambdaQueryWrapper<Drug> bw = new LambdaQueryWrapper<>();
-                            bw.eq(Drug::getBarcode, drugCode);
-                            drug = drugMapper.selectOne(bw);
+                            // 2. 匹配 drugCode（新系统编号）
+                            drug = drugCodeMap.get(code);
                         }
                         if (drug == null) {
-                            // 3. 尝试用原系统编号查找
-                            LambdaQueryWrapper<Drug> ow = new LambdaQueryWrapper<>();
-                            ow.eq(Drug::getOriginalCode, drugCode);
-                            drug = drugMapper.selectOne(ow);
+                            // 3. 匹配 barcode（条形码）
+                            drug = barcodeMap.get(code);
                         }
                     }
-                    if (drug == null && drugName != null && !drugName.isEmpty()) {
-                        // 4. 尝试用通用名查找
-                        LambdaQueryWrapper<Drug> nw = new LambdaQueryWrapper<>();
-                        nw.eq(Drug::getGenericName, drugName);
-                        drug = drugMapper.selectOne(nw);
-                        searchKey = drugName;
+
+                    // 4. 通用名+规格精确匹配
+                    if (drug == null && genericName != null && !genericName.isEmpty()) {
+                        if (specification != null && !specification.isEmpty()) {
+                            String key = genericName.trim() + "||" + specification.trim();
+                            drug = nameSpecMap.get(key);
+                        }
+                        if (drug == null) {
+                            // 5. 仅通用名匹配
+                            drug = genericNameMap.get(genericName.trim());
+                        }
+                        searchKey = genericName;
                     }
-                    if (drug == null && drugCode != null && !drugCode.isEmpty()) {
-                        // 5. 最后用drugCode尝试名称匹配
-                        LambdaQueryWrapper<Drug> nw = new LambdaQueryWrapper<>();
-                        nw.eq(Drug::getGenericName, drugCode);
-                        drug = drugMapper.selectOne(nw);
+
+                    // 6. 商品名匹配（作为最后手段）
+                    if (drug == null && tradeName != null && !tradeName.isEmpty()) {
+                        drug = tradeNameMap.get(tradeName.trim());
+                        searchKey = tradeName;
                     }
+
+                    // 7. 条形码字段单独匹配
+                    if (drug == null && barcodeVal != null && !barcodeVal.isEmpty()) {
+                        drug = barcodeMap.get(barcodeVal.trim());
+                        searchKey = barcodeVal;
+                    }
+
                     if (drug == null) {
-                        fail.incrementAndGet();
-                        errorLog.append("第").append(total.get()).append("行: 未找到药品 ").append(searchKey).append("\n");
+                        skip.incrementAndGet();
+                        skipTracker.record(total.get(), "未找到匹配药品", searchKey);
                         return;
                     }
 
+                    // ===== 可选：更新药品零售价 =====
+                    if (retailPriceStr != null && !retailPriceStr.isEmpty()) {
+                        BigDecimal newRetailPrice = parseBigDecimal(retailPriceStr);
+                        if (newRetailPrice.compareTo(BigDecimal.ZERO) > 0
+                                && (drug.getRetailPrice() == null || drug.getRetailPrice().compareTo(BigDecimal.ZERO) == 0)) {
+                            drug.setRetailPrice(newRetailPrice);
+                            drugMapper.updateById(drug);
+                            priceUpdated.incrementAndGet();
+                        }
+                    }
+
+                    // ===== 解析供应商 =====
+                    Long supplierId = null;
+                    if (supplierNameVal != null && !supplierNameVal.isEmpty()) {
+                        String sName = supplierNameVal.trim();
+                        supplierId = supplierCache.get(sName);
+                        if (supplierId == null) {
+                            // 自动创建供应商
+                            Supplier newSupplier = new Supplier();
+                            newSupplier.setName(sName);
+                            newSupplier.setStatus("启用");
+                            supplierMapper.insert(newSupplier);
+                            supplierId = newSupplier.getId();
+                            supplierCache.put(sName, supplierId);
+                        }
+                    }
+
+                    // ===== 创建或查找 DrugBatch =====
+                    Long batchId = null;
+                    if (batchNo != null && !batchNo.isEmpty()) {
+                        String batchKey = drug.getId() + "||" + batchNo.trim();
+                        DrugBatch existBatch = batchCache.get(batchKey);
+                        if (existBatch != null) {
+                            batchId = existBatch.getId();
+                            // 如果已有批次缺少供应商，补充设置
+                            if (supplierId != null && existBatch.getSupplierId() == null) {
+                                existBatch.setSupplierId(supplierId);
+                                drugBatchMapper.updateById(existBatch);
+                            }
+                        } else {
+                            // 创建新批次
+                            DrugBatch newBatch = new DrugBatch();
+                            newBatch.setDrugId(drug.getId());
+                            newBatch.setBatchNo(batchNo.trim());
+                            newBatch.setProduceDate(parseDate(produceDateStr));
+                            newBatch.setExpireDate(parseDate(expireDateStr));
+                            if (costPriceStr != null && !costPriceStr.isEmpty()) {
+                                newBatch.setPurchasePrice(parseBigDecimal(costPriceStr));
+                            }
+                            newBatch.setSupplierId(supplierId);
+                            newBatch.setStatus("active");
+                            drugBatchMapper.insert(newBatch);
+                            batchId = newBatch.getId();
+                            // 放入缓存避免重复创建
+                            batchCache.put(batchKey, newBatch);
+                            batchCreated.incrementAndGet();
+                        }
+                    }
+
+                    // ===== 创建 Inventory 记录 =====
                     Inventory inventory = new Inventory();
+                    inventory.setStoreId(defaultStoreId);
                     inventory.setDrugId(drug.getId());
-                    inventory.setBatchNo(batchNo);
+                    inventory.setBatchId(batchId);
+                    inventory.setBatchNo(batchNo != null ? batchNo.trim() : null);
                     inventory.setQuantity(parseBigDecimal(quantityStr));
-                    inventory.setCostPrice(parseBigDecimal(costPriceStr));
+                    if (costPriceStr != null && !costPriceStr.isEmpty()) {
+                        inventory.setCostPrice(parseBigDecimal(costPriceStr));
+                    }
                     inventory.setUnit(unit != null ? unit : drug.getUnit());
                     inventory.setLocation(location);
 
@@ -818,15 +1058,22 @@ public class DataMigrationService {
             }
 
             @Override
-            public void doAfterAllAnalysed(AnalysisContext context) {}
+            public void doAfterAllAnalysed(AnalysisContext context) {
+                log.info("库存导入完成: 总计={}, 成功={}, 跳过={}, 失败={}, 新建批次={}, 更新零售价={}",
+                        total.get(), success.get(), skip.get(), fail.get(),
+                        batchCreated.get(), priceUpdated.get());
+            }
         }).headRowNumber(1).sheet().doRead();
 
         task.setTotalCount(total.get());
         task.setSuccessCount(success.get());
         task.setFailCount(fail.get());
         task.setSkipCount(skip.get());
+        String extraInfo = "新建批次: " + batchCreated.get() + " 条，更新零售价: " + priceUpdated.get() + " 条";
         if (errorLog.length() > 0) {
-            task.setErrorLog(errorLog.toString());
+            task.setErrorLog(extraInfo + "\n" + errorLog.toString());
+        } else {
+            task.setErrorLog(extraInfo);
         }
         task.setSkipLog(skipTracker.buildLog());
     }

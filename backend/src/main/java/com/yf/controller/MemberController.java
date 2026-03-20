@@ -144,4 +144,13 @@ public class MemberController {
         ImportExecuteResponse result = batchImportService.executeMemberImport(request);
         return ApiResponse.success(result);
     }
+    
+    /**
+     * 批量生成会员拼音（修复历史数据）
+     */
+    @PostMapping("/generate-pinyin")
+    public ApiResponse<Map<String, Object>> generatePinyin() {
+        int count = memberService.generateAllPinyin();
+        return ApiResponse.success(Map.of("updated", count, "message", "已更新" + count + "条会员拼音数据"));
+    }
 }

@@ -22,7 +22,7 @@
         <el-button type="warning" @click="handlePartialAdd"><el-icon><Select /></el-icon>单品退货</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="tableData" stripe border style="width:100%">
+      <el-table ref="tableRef" v-loading="loading" :data="tableData" stripe border style="width:100%" highlight-current-row>
         <el-table-column prop="refundNo" label="退款单号" width="180" />
         <el-table-column prop="saleOrderId" label="原订单ID" width="120" />
         <el-table-column label="退货类型" width="100" align="center">
@@ -192,12 +192,14 @@ import {
   approveRefund,
   rejectRefund
 } from '@/api/sale'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const statusMap = { '待审核': 'warning', '已退款': 'success', '已拒绝': 'danger' }
 
 const searchForm = reactive({ status: '' })
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = reactive({ current: 1, size: 10, total: 0 })
 
 const detailVisible = ref(false)
@@ -243,6 +245,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       pagination.total = res.data.total
+      selectFirstRow()
     }
   } catch { ElMessage.error('获取数据失败') } finally { loading.value = false }
 }

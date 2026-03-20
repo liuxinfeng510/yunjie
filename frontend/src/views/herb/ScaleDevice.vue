@@ -13,7 +13,7 @@
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="queryForm" class="search-form">
         <el-form-item label="设备名称">
-          <el-input v-model="queryForm.name" placeholder="请输入设备名称" clearable />
+          <el-input v-model="queryForm.name" placeholder="请输入设备名称" clearable @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="queryForm.status" placeholder="请选择状态" clearable>
@@ -29,7 +29,7 @@
       </el-form>
 
       <!-- 数据表格 -->
-      <el-table :data="tableData" v-loading="loading" stripe>
+      <el-table ref="tableRef" :data="tableData" v-loading="loading" stripe highlight-current-row>
         <el-table-column prop="deviceCode" label="设备编码" width="120" />
         <el-table-column prop="name" label="设备名称" width="150" />
         <el-table-column prop="brand" label="品牌" width="100" />
@@ -157,11 +157,13 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus, Loading } from '@element-plus/icons-vue'
 import { getScaleDevicePage, createScaleDevice, updateScaleDevice, deleteScaleDevice, testScaleDevice, calibrateScaleDevice } from '@/api/device'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const testing = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const dialogVisible = ref(false)
 const testDialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -215,6 +217,7 @@ const loadData = async () => {
     })
     tableData.value = res.data.records
     pagination.total = res.data.total
+    selectFirstRow()
   } catch (error) {
     ElMessage.error('加载设备列表失败')
   } finally {

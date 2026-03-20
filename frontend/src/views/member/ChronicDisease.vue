@@ -1,5 +1,8 @@
 <template>
   <div class="chronic-disease-container">
+    <div v-if="fromPos" class="back-bar" style="margin-bottom: 12px;">
+      <el-button type="primary" plain size="small" @click="router.push({ path: '/sale/pos', query: { memberId: route.query.memberId } })">&larr; 返回收银台</el-button>
+    </div>
     <!-- 统计卡片 -->
     <el-row :gutter="20" class="stat-row">
       <el-col :span="4">
@@ -226,12 +229,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { 
   pageDiseaseRecords, getDiseaseStatistics, getPendingFollowUps,
   recordCheckResult, createDiseaseReminder 
 } from '@/api/health'
+
+const route = useRoute()
+const router = useRouter()
+const fromPos = computed(() => route.query.from === 'pos')
 
 const loading = ref(false)
 const statistics = ref({})

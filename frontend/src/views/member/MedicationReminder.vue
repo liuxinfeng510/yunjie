@@ -1,5 +1,8 @@
 <template>
   <div class="medication-reminder">
+    <div v-if="fromPos" class="back-bar" style="margin-bottom: 12px;">
+      <el-button type="primary" plain size="small" @click="router.push({ path: '/sale/pos', query: { memberId: route.query.memberId } })">&larr; 返回收银台</el-button>
+    </div>
     <el-card>
       <template #header>
         <div class="card-header">
@@ -128,12 +131,17 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getReminderPage, createReminder, updateReminder, deleteReminder, pauseReminder, resumeReminder } from '@/api/health'
 import { getDrugList } from '@/api/drug'
 import { searchMembers } from '@/api/member'
+
+const route = useRoute()
+const router = useRouter()
+const fromPos = computed(() => route.query.from === 'pos')
 
 const loading = ref(false)
 const submitting = ref(false)

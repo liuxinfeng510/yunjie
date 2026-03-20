@@ -12,7 +12,7 @@
 
       <el-form :inline="true" :model="query" class="search-form">
         <el-form-item label="姓名/账号">
-          <el-input v-model="query.keyword" placeholder="请输入姓名或账号" clearable style="width: 180px;" />
+          <el-input v-model="query.keyword" placeholder="请输入姓名或账号" clearable style="width: 180px;" @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="query.role" placeholder="全部" clearable style="width: 120px;">
@@ -109,10 +109,12 @@
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import request from '@/utils/request'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const staffList = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(staffList)
 const stores = ref([])
 const total = ref(0)
 const dialogVisible = ref(false)
@@ -162,6 +164,7 @@ async function loadData() {
     if (res.code === 200) {
       staffList.value = res.data.records || []
       total.value = res.data.total || 0
+      selectFirstRow()
     }
   } finally {
     loading.value = false

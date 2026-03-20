@@ -31,6 +31,11 @@ public class DrugCategory extends BaseEntity {
     private Integer sortOrder;
 
     /**
+     * 备注
+     */
+    private String remark;
+
+    /**
      * 是否系统预置分类（全局共享，不可修改删除）
      */
     private Boolean isSystem;

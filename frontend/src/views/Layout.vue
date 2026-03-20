@@ -101,6 +101,7 @@
             <el-menu-item index="/sale/out-of-stock">缺货登记</el-menu-item>
             <el-menu-item index="/sale/promotion">促销管理</el-menu-item>
             <el-menu-item index="/sale/combination">组合推荐</el-menu-item>
+            <el-menu-item index="/sale/reconciliation">日终对账</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="member-menu">
@@ -113,6 +114,7 @@
             <el-menu-item index="/member/health">健康画像</el-menu-item>
             <el-menu-item index="/member/chronic-disease">慢病管理</el-menu-item>
             <el-menu-item index="/member/reminder">用药提醒</el-menu-item>
+            <el-menu-item index="/member/purchase-history">购药记录</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="first-marketing-menu">
@@ -122,6 +124,16 @@
             </template>
             <el-menu-item index="/first-marketing/supplier">首营企业</el-menu-item>
             <el-menu-item index="/first-marketing/drug">首营品种</el-menu-item>
+          </el-sub-menu>
+
+          <el-sub-menu index="business-history-menu">
+            <template #title>
+              <el-icon><Notebook /></el-icon>
+              <span>经营历程</span>
+            </template>
+            <el-menu-item index="/business-history/purchase">进货查询</el-menu-item>
+            <el-menu-item index="/business-history/sales">销售查询</el-menu-item>
+            <el-menu-item index="/business-history/inventory">存货查询</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="gsp-menu">

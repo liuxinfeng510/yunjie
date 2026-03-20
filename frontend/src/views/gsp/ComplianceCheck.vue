@@ -96,7 +96,7 @@
             </div>
           </template>
 
-          <el-table :data="checkList" stripe v-loading="loading">
+          <el-table ref="tableRef" :data="checkList" stripe v-loading="loading" highlight-current-row>
             <el-table-column prop="checkBatchNo" label="批次号" width="140" />
             <el-table-column prop="checkDate" label="检查日期" width="100" />
             <el-table-column prop="checkType" label="类型" width="70">
@@ -192,11 +192,13 @@ import { ref, onMounted, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { executeGspCheck, pageGspChecks, getGspStatistics, updateCorrectionStatus } from '@/api/gspAutomation'
 import { getStoreList } from '@/api/system'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const executing = ref(false)
 const storeList = ref([])
 const checkList = ref([])
+const { tableRef, selectFirstRow } = useTableKeyboardNav(checkList)
 const total = ref(0)
 const statistics = ref({})
 const lastCheckResult = ref(null)
@@ -250,6 +252,7 @@ const loadChecks = async () => {
     const res = await pageGspChecks(params)
     checkList.value = res.data?.records || []
     total.value = res.data?.total || 0
+    selectFirstRow()
   } catch (error) {
     console.error('加载检查记录失败', error)
   } finally {

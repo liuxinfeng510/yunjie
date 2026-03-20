@@ -118,3 +118,17 @@ export function getSuspendedOrderExpireMinutes() {
 export function updateSuspendedOrderExpireMinutes(minutes) {
   return request.put('/suspended-order/config/expire-minutes', { minutes })
 }
+
+// ========== 对账单 ==========
+export function getReconciliationPreview(params) {
+  return request.get('/reconciliation/preview', { params })
+}
+export function submitReconciliation(data) {
+  return request.post('/reconciliation', data)
+}
+export function getReconciliationPage(params) {
+  return request.get('/reconciliation/page', { params })
+}
+export function getReconciliationDetail(id) {
+  return request.get(`/reconciliation/${id}`)
+}

@@ -54,8 +54,8 @@
         <el-table-column prop="drugName" label="商品名称" min-width="150" />
         <el-table-column prop="specification" label="规格" width="100" />
         <el-table-column prop="batchNo" label="批号" width="130" />
-        <el-table-column prop="productionDate" label="生产日期" width="110" />
-        <el-table-column prop="expiryDate" label="有效期至" width="110" />
+        <el-table-column prop="produceDate" label="生产日期" width="110" />
+        <el-table-column prop="expireDate" label="有效期至" width="110" />
         <el-table-column prop="remainingDays" label="剩余天数" width="100">
           <template #default="{ row }">
             <span :style="{ color: row.remainingDays <= 90 ? '#f56c6c' : row.remainingDays <= 180 ? '#e6a23c' : '#67c23a' }">
@@ -63,7 +63,7 @@
             </span>
           </template>
         </el-table-column>
-        <el-table-column prop="quantity" label="库存数量" width="100" />
+        <el-table-column prop="stockQuantity" label="库存数量" width="100" />
         <el-table-column prop="supplier" label="供应商" width="150" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="90">
           <template #default="{ row }">
@@ -99,8 +99,8 @@
         <el-descriptions-item label="批号">{{ currentBatch.batchNo }}</el-descriptions-item>
         <el-descriptions-item label="规格">{{ currentBatch.specification }}</el-descriptions-item>
         <el-descriptions-item label="生产企业">{{ currentBatch.manufacturer }}</el-descriptions-item>
-        <el-descriptions-item label="生产日期">{{ currentBatch.productionDate }}</el-descriptions-item>
-        <el-descriptions-item label="有效期至">{{ currentBatch.expiryDate }}</el-descriptions-item>
+        <el-descriptions-item label="生产日期">{{ currentBatch.produceDate }}</el-descriptions-item>
+        <el-descriptions-item label="有效期至">{{ currentBatch.expireDate }}</el-descriptions-item>
         <el-descriptions-item label="入库数量">{{ currentBatch.inQuantity }}</el-descriptions-item>
         <el-descriptions-item label="当前库存">{{ currentBatch.quantity }}</el-descriptions-item>
         <el-descriptions-item label="供应商">{{ currentBatch.supplier }}</el-descriptions-item>
@@ -186,14 +186,9 @@ const resetQuery = () => {
   loadData()
 }
 
-const handleDetail = async (row) => {
-  try {
-    const res = await getBatchDetail(row.id)
-    currentBatch.value = res.data
-    detailVisible.value = true
-  } catch (error) {
-    ElMessage.error('获取批次详情失败')
-  }
+const handleDetail = (row) => {
+  currentBatch.value = row
+  detailVisible.value = true
 }
 
 const handleLock = async (row) => {

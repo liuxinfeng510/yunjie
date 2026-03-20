@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 药品批次控制器
@@ -21,13 +22,15 @@ public class DrugBatchController {
     private final DrugBatchService batchService;
 
     @GetMapping("/page")
-    public ApiResponse<Page<DrugBatch>> page(
+    public ApiResponse<Page<Map<String, Object>>> page(
             @RequestParam(required = false) Long drugId,
             @RequestParam(required = false) Long supplierId,
             @RequestParam(required = false) String status,
-            @RequestParam(defaultValue = "1") int pageNum,
-            @RequestParam(defaultValue = "20") int pageSize) {
-        return ApiResponse.success(batchService.page(drugId, supplierId, status, pageNum, pageSize));
+            @RequestParam(required = false) String drugName,
+            @RequestParam(required = false) String batchNo,
+            @RequestParam(defaultValue = "1") int current,
+            @RequestParam(defaultValue = "20") int size) {
+        return ApiResponse.success(batchService.pageWithDetail(drugId, supplierId, status, drugName, batchNo, current, size));
     }
 
     @GetMapping("/{id}")
@@ -64,6 +67,25 @@ public class DrugBatchController {
     public ApiResponse<Void> updateStatus(@PathVariable Long id, @RequestParam String status) {
         batchService.updateStatus(id, status);
         return ApiResponse.success();
+    }
+
+    @PutMapping("/{id}/lock")
+    @Auditable(module = "批次管理", operation = "锁定批次")
+    public ApiResponse<Void> lockBatch(@PathVariable Long id) {
+        batchService.updateStatus(id, "locked");
+        return ApiResponse.success();
+    }
+
+    @PutMapping("/{id}/unlock")
+    @Auditable(module = "批次管理", operation = "解锁批次")
+    public ApiResponse<Void> unlockBatch(@PathVariable Long id) {
+        batchService.updateStatus(id, "active");
+        return ApiResponse.success();
+    }
+
+    @GetMapping("/statistics")
+    public ApiResponse<Map<String, Object>> getStatistics() {
+        return ApiResponse.success(batchService.getStatistics());
     }
 
     @GetMapping("/near-expiry")

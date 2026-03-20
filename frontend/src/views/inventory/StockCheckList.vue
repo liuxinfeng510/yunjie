@@ -27,7 +27,7 @@
         <el-button type="primary" @click="handleCreate"><el-icon><Plus /></el-icon>发起盘点</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="tableData" stripe border style="width:100%">
+      <el-table ref="tableRef" v-loading="loading" :data="tableData" stripe border style="width:100%" highlight-current-row>
         <el-table-column prop="orderNo" label="盘点单号" width="180" />
         <el-table-column label="盘点类型" width="120" align="center">
           <template #default="{ row }">
@@ -153,10 +153,12 @@ import {
   updateStockCheckDetail,
   completeStockCheck
 } from '@/api/inventory'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const searchForm = reactive({ type: '', status: '' })
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = reactive({ current: 1, size: 10, total: 0 })
 
 const createVisible = ref(false)
@@ -182,6 +184,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       pagination.total = res.data.total
+      selectFirstRow()
     }
   } catch { ElMessage.error('获取数据失败') } finally { loading.value = false }
 }

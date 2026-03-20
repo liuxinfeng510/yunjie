@@ -4,10 +4,10 @@
     <el-card shadow="never" style="margin-bottom: 16px;">
       <el-form :model="searchForm" inline>
         <el-form-item label="通用名">
-          <el-input v-model="searchForm.genericName" placeholder="请输入通用名" clearable style="width: 180px;" />
+          <el-input v-model="searchForm.genericName" placeholder="请输入通用名" clearable style="width: 180px;" @keydown.enter.prevent="handleSearch" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="供应商">
-          <el-input v-model="searchForm.supplierName" placeholder="请输入供应商名称" clearable style="width: 180px;" />
+          <el-input v-model="searchForm.supplierName" placeholder="请输入供应商名称" clearable style="width: 180px;" @keydown.enter.prevent="handleSearch" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 130px;">
@@ -31,7 +31,7 @@
         <el-button type="primary" @click="handleAdd" :icon="Plus">新增首营品种</el-button>
       </div>
 
-      <el-table :data="tableData" v-loading="loading" border stripe>
+      <el-table ref="tableRef" :data="tableData" v-loading="loading" border stripe highlight-current-row>
         <el-table-column prop="applyNo" label="申请编号" width="150" />
         <el-table-column prop="genericName" label="通用名" min-width="140" show-overflow-tooltip />
         <el-table-column prop="tradeName" label="商品名" width="130" show-overflow-tooltip />
@@ -242,6 +242,7 @@ import {
   approveFirstMarketingDrugSecond,
   getApprovalLevel
 } from '@/api/firstMarketing'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const authStore = useAuthStore()
 
@@ -249,6 +250,7 @@ const searchForm = ref({ genericName: '', supplierName: '', status: '' })
 const tableData = ref([])
 const loading = ref(false)
 const pagination = ref({ current: 1, size: 10, total: 0 })
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const approvalLevel = ref('1')
 
 const dialogVisible = ref(false)
@@ -295,6 +297,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.value.total = res.data.total || 0
+      selectFirstRow()
     }
   } finally { loading.value = false }
 }

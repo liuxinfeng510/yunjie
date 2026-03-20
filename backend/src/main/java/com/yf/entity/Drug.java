@@ -175,6 +175,22 @@ public class Drug extends BaseEntity {
      */
     private Boolean isImported;
 
+    /**
+     * 库存数量(参考值，不走入库流程)
+     */
+    private BigDecimal stockQuantity;
+
+    /** 是否需要实名登记 */
+    private Boolean requireRealName;
+    /** 库存上限 */
+    private Integer stockUpperLimit;
+    /** 库存下限 */
+    private Integer stockLowerLimit;
+    /** 销售可调价 */
+    private Boolean allowPriceAdjust;
+    /** 养护方式 */
+    private String maintenanceMethod;
+
     // ========== 中药饮片特有字段 ==========
 
     /** 是否中药饮片 */

@@ -63,10 +63,12 @@
 
       <!-- 表格 -->
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         style="width: 100%"
         border
+        highlight-current-row
       >
         <el-table-column prop="location" label="位置" width="120" align="center">
           <template #default="{ row }">
@@ -153,6 +155,7 @@ const dateRange = ref([])
 // 表格数据
 const tableData = ref([])
 const loading = ref(false)
+const { tableRef, selectFirstRow } = useTableKeyboardNav(tableData)
 
 // 分页
 const pagination = reactive({
@@ -192,6 +195,7 @@ const handleSearch = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.total = res.data.total || 0
+      selectFirstRow()
 
       // 更新统计数据
       stats.todayCount = res.data.todayCount || 0

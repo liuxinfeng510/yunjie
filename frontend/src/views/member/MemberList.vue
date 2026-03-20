@@ -4,7 +4,7 @@
       <!-- 搜索和操作区 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="姓名/手机">
-          <el-input v-model="searchForm.keyword" placeholder="请输入姓名或手机号" clearable />
+          <el-input v-model="searchForm.keyword" placeholder="请输入姓名或手机号" clearable @keydown.enter.prevent="handleSearch" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="会员等级">
           <el-select v-model="searchForm.levelId" placeholder="请选择" clearable>
@@ -24,10 +24,12 @@
 
       <!-- 表格 -->
       <el-table
+        ref="tableRef"
         v-loading="loading"
         :data="tableData"
         style="width: 100%"
         border
+        highlight-current-row
       >
         <el-table-column prop="memberNo" label="会员号" width="120" />
         <el-table-column prop="name" label="姓名" width="100" />
@@ -271,6 +273,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getMemberPage, getMember, createMember, updateMember, getMemberPointsLog, addPoints, deductPoints, parseMemberImport, executeMemberImport } from '@/api/member'
 import BatchImportDialog from '@/components/BatchImportDialog.vue'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 // 搜索表单
 const searchForm = reactive({
@@ -281,6 +284,7 @@ const searchForm = reactive({
 // 表格数据
 const tableData = ref([])
 const loading = ref(false)
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 
 // 分页
 const pagination = reactive({
@@ -351,6 +355,7 @@ const handleSearch = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.total = res.data.total || 0
+      selectFirstRow()
     }
   } catch (error) {
     ElMessage.error('查询失败：' + error.message)

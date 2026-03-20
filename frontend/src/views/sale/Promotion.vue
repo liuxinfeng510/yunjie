@@ -9,7 +9,7 @@
       </template>
 
       <el-form :inline="true" :model="queryForm" class="search-form">
-        <el-form-item label="活动名称"><el-input v-model="queryForm.name" placeholder="请输入活动名称" clearable /></el-form-item>
+        <el-form-item label="活动名称"><el-input v-model="queryForm.name" placeholder="请输入活动名称" clearable @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" /></el-form-item>
         <el-form-item label="活动类型">
           <el-select v-model="queryForm.type" placeholder="请选择" clearable>
             <el-option label="满减" value="reduction" />
@@ -118,10 +118,12 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getPromotionPage, createPromotion, updatePromotion, activatePromotion, pausePromotion, endPromotion } from '@/api/sale'
 import { getDrugList } from '@/api/drug'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const drugList = ref([])
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
@@ -139,7 +141,7 @@ const getTypeName = (t) => typeMap[t] || t
 const getStatusName = (s) => statusMap[s] || s
 const getStatusColor = (s) => statusColorMap[s] || 'info'
 
-const loadData = async () => { loading.value = true; try { const res = await getPromotionPage({ current: pagination.current, size: pagination.size, ...queryForm }); tableData.value = res.data.records; pagination.total = res.data.total } catch (e) { ElMessage.error('加载失败') } finally { loading.value = false } }
+const loadData = async () => { loading.value = true; try { const res = await getPromotionPage({ current: pagination.current, size: pagination.size, ...queryForm }); tableData.value = res.data.records; pagination.total = res.data.total; selectFirstRow() } catch (e) { ElMessage.error('加载失败') } finally { loading.value = false } }
 const loadDrugList = async () => { try { const res = await getDrugList(); drugList.value = res.data } catch (e) { console.error(e) } }
 const resetQuery = () => { queryForm.name = ''; queryForm.type = ''; queryForm.status = ''; pagination.current = 1; loadData() }
 const handleTypeChange = () => { form.conditionAmount = 100; form.reductionAmount = 10; form.discountRate = 90; form.giftDrugId = null; form.giftQuantity = 1 }

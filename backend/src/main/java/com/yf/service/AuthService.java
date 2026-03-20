@@ -56,6 +56,7 @@ public class AuthService {
                 .realName(user.getRealName())
                 .role(user.getRole())
                 .tenantId(user.getTenantId())
+                .tenantName(tenant != null ? tenant.getName() : "")
                 .storeId(user.getStoreId())
                 .businessMode(tenant != null ? tenant.getBusinessMode() : "single_store")
                 .build();

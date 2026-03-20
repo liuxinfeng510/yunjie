@@ -9,6 +9,9 @@
             placeholder="请输入药材名称或拼音"
             clearable
             @clear="handleSearch"
+            @keydown.enter.prevent="handleSearch"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
           />
         </el-form-item>
         <el-form-item label="药材类别">
@@ -328,6 +331,7 @@ import {
   updateHerb,
   deleteHerb
 } from '@/api/herb'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 // 搜索表单
 const searchForm = reactive({
@@ -340,6 +344,7 @@ const searchForm = reactive({
 // 表格数据
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = reactive({
   current: 1,
   size: 10,
@@ -393,6 +398,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       pagination.total = res.data.total
+      selectFirstRow()
     }
   } catch (error) {
     ElMessage.error('获取数据失败')

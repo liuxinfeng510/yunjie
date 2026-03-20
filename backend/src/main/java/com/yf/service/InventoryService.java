@@ -94,6 +94,12 @@ public class InventoryService {
                     map.put("maxStock", inv.getMaxStock());
                     map.put("updateTime", inv.getUpdatedAt());
                     
+                    // 计算缺口数量
+                    BigDecimal qty = inv.getQuantity() != null ? inv.getQuantity() : BigDecimal.ZERO;
+                    BigDecimal safe = inv.getSafeStock() != null ? inv.getSafeStock() : BigDecimal.ZERO;
+                    BigDecimal shortage = safe.subtract(qty);
+                    map.put("shortage", shortage.compareTo(BigDecimal.ZERO) > 0 ? shortage : BigDecimal.ZERO);
+                    
                     // 药品信息
                     Drug drug = finalDrugMap.get(inv.getDrugId());
                     if (drug != null) {
@@ -133,7 +139,68 @@ public class InventoryService {
             wrapper.eq(Inventory::getBatchId, batchId);
         }
         
+        // 使用 selectList + LIMIT 1 避免多结果异常
+        wrapper.last("LIMIT 1");
         return inventoryMapper.selectOne(wrapper);
+    }
+    
+    /**
+     * 渐进式查找库存记录（用于出库/入库时定位库存行）
+     * 查找顺序：精确匹配 -> storeId+drugId -> drugId+batchId -> drugId
+     */
+    private Inventory findInventoryForAdjust(Long storeId, Long drugId, Long batchId) {
+        // 1. 精确匹配：storeId + drugId + batchId
+        if (batchId != null && storeId != null) {
+            LambdaQueryWrapper<Inventory> w = new LambdaQueryWrapper<>();
+            w.eq(Inventory::getStoreId, storeId)
+             .eq(Inventory::getDrugId, drugId)
+             .eq(Inventory::getBatchId, batchId);
+            Inventory inv = inventoryMapper.selectOne(w);
+            if (inv != null) return inv;
+        }
+        
+        // 2. storeId + drugId（忽略batchId），取有库存的第一条
+        if (storeId != null) {
+            LambdaQueryWrapper<Inventory> w = new LambdaQueryWrapper<>();
+            w.eq(Inventory::getStoreId, storeId)
+             .eq(Inventory::getDrugId, drugId)
+             .gt(Inventory::getQuantity, 0)
+             .last("LIMIT 1");
+            Inventory inv = inventoryMapper.selectOne(w);
+            if (inv != null) return inv;
+            
+            // 2b. storeId + drugId，含零库存（用于入库场景）
+            LambdaQueryWrapper<Inventory> w2 = new LambdaQueryWrapper<>();
+            w2.eq(Inventory::getStoreId, storeId)
+              .eq(Inventory::getDrugId, drugId)
+              .last("LIMIT 1");
+            inv = inventoryMapper.selectOne(w2);
+            if (inv != null) return inv;
+        }
+        
+        // 3. drugId + batchId（storeId不匹配时降级查找）
+        if (batchId != null) {
+            LambdaQueryWrapper<Inventory> w = new LambdaQueryWrapper<>();
+            w.eq(Inventory::getDrugId, drugId)
+             .eq(Inventory::getBatchId, batchId)
+             .last("LIMIT 1");
+            Inventory inv = inventoryMapper.selectOne(w);
+            if (inv != null) return inv;
+        }
+        
+        // 4. 仅drugId，取有库存的第一条
+        LambdaQueryWrapper<Inventory> w = new LambdaQueryWrapper<>();
+        w.eq(Inventory::getDrugId, drugId)
+         .gt(Inventory::getQuantity, 0)
+         .last("LIMIT 1");
+        Inventory inv = inventoryMapper.selectOne(w);
+        if (inv != null) return inv;
+        
+        // 5. 仅drugId，任意一条（包含零库存）
+        LambdaQueryWrapper<Inventory> w2 = new LambdaQueryWrapper<>();
+        w2.eq(Inventory::getDrugId, drugId)
+          .last("LIMIT 1");
+        return inventoryMapper.selectOne(w2);
     }
     
     /**
@@ -141,10 +208,10 @@ public class InventoryService {
      */
     @Transactional(rollbackFor = Exception.class)
     public void adjustStock(Long storeId, Long drugId, Long batchId, BigDecimal quantity, String type) {
-        Inventory inventory = getByStoreAndDrug(storeId, drugId, batchId);
+        Inventory inventory = findInventoryForAdjust(storeId, drugId, batchId);
         
         if (inventory == null) {
-            throw new BusinessException("库存记录不存在");
+            throw new BusinessException("库存记录不存在(drugId=" + drugId + ")");
         }
         
         BigDecimal newQuantity;

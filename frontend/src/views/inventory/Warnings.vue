@@ -25,7 +25,11 @@
               </template>
             </el-table-column>
             <el-table-column prop="manufacturer" label="生产厂家" min-width="150" show-overflow-tooltip />
-            <el-table-column prop="lastPurchaseTime" label="上次采购时间" width="160" />
+            <el-table-column prop="lastPurchaseTime" label="最近更新时间" width="160">
+              <template #default="{ row }">
+                {{ row.lastPurchaseTime || '-' }}
+              </template>
+            </el-table-column>
             <el-table-column label="操作" width="120" align="center" fixed="right">
               <template #default="{ row }">
                 <el-button type="primary" size="small" @click="handleReplenish(row)">
@@ -131,6 +135,8 @@
 <script setup>
 import { ref, reactive, onMounted, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { getInventoryPage } from '@/api/inventory'
+import { getBatchPage } from '@/api/batch'
 
 // Tab切换
 const activeTab = ref('lowStock')
@@ -161,114 +167,6 @@ const replenishForm = reactive({
   remark: ''
 })
 
-// 模拟低库存数据
-const mockLowStockData = [
-  {
-    id: 1,
-    drugName: '阿莫西林胶囊',
-    specification: '0.25g*24粒',
-    currentStock: 15,
-    safeStock: 50,
-    shortage: 35,
-    manufacturer: '华北制药股份有限公司',
-    lastPurchaseTime: '2026-02-15 10:30:00'
-  },
-  {
-    id: 2,
-    drugName: '感冒灵颗粒',
-    specification: '10g*9袋',
-    currentStock: 8,
-    safeStock: 30,
-    shortage: 22,
-    manufacturer: '广州白云山制药总厂',
-    lastPurchaseTime: '2026-02-10 14:20:00'
-  },
-  {
-    id: 3,
-    drugName: '布洛芬缓释胶囊',
-    specification: '0.3g*10粒',
-    currentStock: 12,
-    safeStock: 40,
-    shortage: 28,
-    manufacturer: '中美天津史克制药有限公司',
-    lastPurchaseTime: '2026-02-20 09:15:00'
-  },
-  {
-    id: 4,
-    drugName: '复方甘草片',
-    specification: '100片',
-    currentStock: 5,
-    safeStock: 25,
-    shortage: 20,
-    manufacturer: '江苏康缘药业股份有限公司',
-    lastPurchaseTime: '2026-02-05 16:45:00'
-  },
-  {
-    id: 5,
-    drugName: '维生素C片',
-    specification: '100mg*100片',
-    currentStock: 18,
-    safeStock: 60,
-    shortage: 42,
-    manufacturer: '石药集团欧意药业有限公司',
-    lastPurchaseTime: '2026-02-18 11:30:00'
-  }
-]
-
-// 模拟近效期数据
-const mockNearExpiryData = [
-  {
-    id: 1,
-    drugName: '头孢克肟胶囊',
-    specification: '0.1g*12粒',
-    batchNo: 'H20210315',
-    expiryDate: '2026-04-15',
-    remainingDays: 44,
-    stock: 28,
-    manufacturer: '深圳致君制药有限公司'
-  },
-  {
-    id: 2,
-    drugName: '三九胃泰颗粒',
-    specification: '20g*9袋',
-    batchNo: 'H20210420',
-    expiryDate: '2026-03-20',
-    remainingDays: 18,
-    stock: 15,
-    manufacturer: '华润三九医药股份有限公司'
-  },
-  {
-    id: 3,
-    drugName: '复方丹参片',
-    specification: '0.32g*60片',
-    batchNo: 'H20210510',
-    expiryDate: '2026-03-10',
-    remainingDays: 8,
-    stock: 42,
-    manufacturer: '天津天士力制药股份有限公司'
-  },
-  {
-    id: 4,
-    drugName: '云南白药胶囊',
-    specification: '0.25g*16粒',
-    batchNo: 'H20210228',
-    expiryDate: '2026-05-01',
-    remainingDays: 60,
-    stock: 20,
-    manufacturer: '云南白药集团股份有限公司'
-  },
-  {
-    id: 5,
-    drugName: '板蓝根颗粒',
-    specification: '10g*20袋',
-    batchNo: 'H20210605',
-    expiryDate: '2026-03-25',
-    remainingDays: 23,
-    stock: 35,
-    manufacturer: '广州白云山光华制药股份有限公司'
-  }
-]
-
 // 效期标签类型
 const getExpiryTagType = (days) => {
   if (days <= 15) return 'danger'
@@ -278,27 +176,48 @@ const getExpiryTagType = (days) => {
 }
 
 // 加载低库存数据
-const loadLowStockData = () => {
+const loadLowStockData = async () => {
   lowStockLoading.value = true
-  setTimeout(() => {
-    const start = (lowStockPagination.current - 1) * lowStockPagination.size
-    const end = start + lowStockPagination.size
-    lowStockData.value = mockLowStockData.slice(start, end)
-    lowStockPagination.total = mockLowStockData.length
+  try {
+    const res = await getInventoryPage({
+      lowStock: true,
+      current: lowStockPagination.current,
+      size: lowStockPagination.size
+    })
+    lowStockData.value = (res.data.records || []).map(item => ({
+      ...item,
+      currentStock: item.quantity,
+      shortage: item.shortage || Math.max(0, (item.safeStock || 0) - (item.quantity || 0)),
+      lastPurchaseTime: item.updateTime || null
+    }))
+    lowStockPagination.total = res.data.total || 0
+  } catch (e) {
+    console.error('加载低库存预警失败', e)
+  } finally {
     lowStockLoading.value = false
-  }, 300)
+  }
 }
 
 // 加载近效期数据
-const loadNearExpiryData = () => {
+const loadNearExpiryData = async () => {
   nearExpiryLoading.value = true
-  setTimeout(() => {
-    const start = (nearExpiryPagination.current - 1) * nearExpiryPagination.size
-    const end = start + nearExpiryPagination.size
-    nearExpiryData.value = mockNearExpiryData.slice(start, end)
-    nearExpiryPagination.total = mockNearExpiryData.length
+  try {
+    const res = await getBatchPage({
+      status: 'near_expiry',
+      current: nearExpiryPagination.current,
+      size: nearExpiryPagination.size
+    })
+    nearExpiryData.value = (res.data.records || []).map(item => ({
+      ...item,
+      expiryDate: item.expireDate,
+      stock: item.stockQuantity || 0
+    }))
+    nearExpiryPagination.total = res.data.total || 0
+  } catch (e) {
+    console.error('加载近效期预警失败', e)
+  } finally {
     nearExpiryLoading.value = false
-  }, 300)
+  }
 }
 
 // 补货

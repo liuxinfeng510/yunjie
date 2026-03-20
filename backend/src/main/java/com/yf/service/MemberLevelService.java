@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Service
@@ -18,6 +19,7 @@ public class MemberLevelService {
     private final MemberLevelMapper memberLevelMapper;
 
     public Page<MemberLevel> page(int pageNum, int pageSize) {
+        ensureDefaultLevels();
         Page<MemberLevel> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<MemberLevel> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByAsc(MemberLevel::getSortOrder);
@@ -25,9 +27,20 @@ public class MemberLevelService {
     }
 
     public List<MemberLevel> list() {
+        ensureDefaultLevels();
         LambdaQueryWrapper<MemberLevel> wrapper = new LambdaQueryWrapper<>();
         wrapper.orderByAsc(MemberLevel::getSortOrder);
         return memberLevelMapper.selectList(wrapper);
+    }
+
+    /**
+     * 获取当前租户的默认等级（sort_order最小的）
+     */
+    public MemberLevel getDefaultLevel() {
+        ensureDefaultLevels();
+        LambdaQueryWrapper<MemberLevel> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByAsc(MemberLevel::getSortOrder).last("LIMIT 1");
+        return memberLevelMapper.selectOne(wrapper);
     }
 
     public MemberLevel getById(Long id) {
@@ -66,5 +79,32 @@ public class MemberLevelService {
     @Transactional(rollbackFor = Exception.class)
     public void delete(Long id) {
         memberLevelMapper.deleteById(id);
+    }
+
+    /**
+     * 当前租户无会员等级时，自动创建默认等级
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void ensureDefaultLevels() {
+        LambdaQueryWrapper<MemberLevel> wrapper = new LambdaQueryWrapper<>();
+        if (memberLevelMapper.selectCount(wrapper) > 0) {
+            return;
+        }
+        // 自动初始化4个默认等级
+        Object[][] defaults = {
+            {"普通会员", BigDecimal.ZERO,          new BigDecimal("100.00"), new BigDecimal("1.00"), 1},
+            {"银卡会员", new BigDecimal("1000.00"), new BigDecimal("95.00"),  new BigDecimal("1.50"), 2},
+            {"金卡会员", new BigDecimal("5000.00"), new BigDecimal("90.00"),  new BigDecimal("2.00"), 3},
+            {"钻石会员", new BigDecimal("20000.00"),new BigDecimal("85.00"),  new BigDecimal("3.00"), 4},
+        };
+        for (Object[] d : defaults) {
+            MemberLevel level = new MemberLevel();
+            level.setName((String) d[0]);
+            level.setMinAmount((BigDecimal) d[1]);
+            level.setDiscount((BigDecimal) d[2]);
+            level.setPointsRate((BigDecimal) d[3]);
+            level.setSortOrder((Integer) d[4]);
+            memberLevelMapper.insert(level);
+        }
     }
 }

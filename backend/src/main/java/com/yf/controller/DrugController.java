@@ -51,20 +51,32 @@ public class DrugController {
             @RequestParam(required = false) String name,
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) String categoryIds,
             @RequestParam(required = false) String otcType,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) Long pageNum,
             @RequestParam(required = false) Long current,
             @RequestParam(required = false) Long pageSize,
-            @RequestParam(required = false) Long size
+            @RequestParam(required = false) Long size,
+            @RequestParam(required = false, defaultValue = "true") Boolean showZeroStock
     ) {
         // 兼容不同参数名
         String searchKey = keyword != null ? keyword : name;
         long pn = current != null ? current : (pageNum != null ? pageNum : 1);
         long ps = size != null ? size : (pageSize != null ? pageSize : 10);
         
+        // 解析多分类ID
+        java.util.List<Long> catIdList = null;
+        if (categoryIds != null && !categoryIds.isEmpty()) {
+            catIdList = java.util.Arrays.stream(categoryIds.split(","))
+                    .map(String::trim)
+                    .filter(s -> !s.isEmpty())
+                    .map(Long::valueOf)
+                    .collect(java.util.stream.Collectors.toList());
+        }
+        
         Page<Drug> page = new Page<>(pn, ps);
-        var result = drugService.pageWithStock(page, searchKey, categoryId, otcType, status);
+        var result = drugService.pageWithStock(page, searchKey, categoryId, catIdList, otcType, status, showZeroStock);
         return ApiResponse.success(result);
     }
 
@@ -166,5 +178,14 @@ public class DrugController {
     public ApiResponse<ImportExecuteResponse> importExecute(@RequestBody ImportExecuteRequest request) {
         ImportExecuteResponse result = batchImportService.executeDrugImport(request);
         return ApiResponse.success(result);
+    }
+
+    /**
+     * 批量生成所有药品的拼音数据（一次性修复历史数据）
+     */
+    @PostMapping("/generate-pinyin")
+    public ApiResponse generatePinyin() {
+        int count = drugService.generateAllPinyin();
+        return ApiResponse.success(Map.of("updated", count));
     }
 }

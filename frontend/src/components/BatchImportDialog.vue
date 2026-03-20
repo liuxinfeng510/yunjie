@@ -132,7 +132,7 @@
 
       <!-- 错误详情 -->
       <div v-if="importResult.errors && importResult.errors.length > 0" style="margin-top: 16px;">
-        <div style="font-weight: 600; margin-bottom: 8px; color: #f56c6c;">失败详情：</div>
+        <div style="font-weight: 600; margin-bottom: 8px; color: #909399;">导入详情（共 {{ importResult.errors.length }} 条记录）：</div>
         <el-scrollbar max-height="200">
           <div
             v-for="(err, i) in importResult.errors"

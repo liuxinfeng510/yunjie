@@ -4,7 +4,7 @@
       <!-- 搜索区 -->
       <el-form :inline="true" :model="searchForm" class="search-form">
         <el-form-item label="订单号">
-          <el-input v-model="searchForm.orderNo" placeholder="请输入订单号" clearable />
+          <el-input v-model="searchForm.orderNo" placeholder="请输入订单号" clearable @keydown.enter.prevent="handleSearch" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="会员姓名">
           <el-input v-model="searchForm.memberName" placeholder="请输入会员姓名" clearable />
@@ -157,6 +157,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSaleOrderPage, getSaleOrder } from '@/api/sale'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 // 搜索表单
 const searchForm = reactive({
@@ -170,6 +171,7 @@ const dateRange = ref([])
 // 表格数据
 const tableData = ref([])
 const loading = ref(false)
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 
 // 分页
 const pagination = reactive({
@@ -217,6 +219,7 @@ const handleSearch = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.total = res.data.total || 0
+      selectFirstRow()
     }
   } catch (error) {
     ElMessage.error('查询失败：' + error.message)

@@ -78,4 +78,19 @@ public class SaleOrderDetail extends BaseEntity {
      * 追溯码
      */
     private String traceCode;
+    
+    /**
+     * 是否中药饮片
+     */
+    private Boolean isHerb;
+    
+    /**
+     * 每剂克数
+     */
+    private BigDecimal dosePerGram;
+    
+    /**
+     * 副数
+     */
+    private Integer doseCount;
 }

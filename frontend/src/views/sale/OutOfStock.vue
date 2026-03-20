@@ -9,7 +9,7 @@
       </template>
 
       <el-form :inline="true" :model="queryForm" class="search-form">
-        <el-form-item label="商品名称"><el-input v-model="queryForm.drugName" placeholder="请输入商品名称" clearable /></el-form-item>
+        <el-form-item label="商品名称"><el-input v-model="queryForm.drugName" placeholder="请输入商品名称" clearable @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" /></el-form-item>
         <el-form-item label="状态">
           <el-select v-model="queryForm.status" placeholder="请选择" clearable>
             <el-option label="待处理" value="pending" />
@@ -79,10 +79,12 @@ import { Plus } from '@element-plus/icons-vue'
 import { getOutOfStockPage, createOutOfStock, startPurchase, confirmArrived, notifyMember } from '@/api/sale'
 import { getDrugList } from '@/api/drug'
 import { searchMembers } from '@/api/member'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const drugList = ref([])
 const memberList = ref([])
 const dialogVisible = ref(false)
@@ -98,7 +100,7 @@ const statusColorMap = { pending: 'warning', purchasing: 'primary', arrived: 'su
 const getStatusName = (s) => statusMap[s] || s
 const getStatusColor = (s) => statusColorMap[s] || 'info'
 
-const loadData = async () => { loading.value = true; try { const res = await getOutOfStockPage({ current: pagination.current, size: pagination.size, ...queryForm }); tableData.value = res.data.records; pagination.total = res.data.total } catch (e) { ElMessage.error('加载失败') } finally { loading.value = false } }
+const loadData = async () => { loading.value = true; try { const res = await getOutOfStockPage({ current: pagination.current, size: pagination.size, ...queryForm }); tableData.value = res.data.records; pagination.total = res.data.total; selectFirstRow() } catch (e) { ElMessage.error('加载失败') } finally { loading.value = false } }
 const loadDrugList = async () => { try { const res = await getDrugList(); drugList.value = res.data } catch (e) { console.error(e) } }
 const searchMember = async (q) => { if (q) { try { const res = await searchMembers(q); memberList.value = res.data } catch (e) { console.error(e) } } }
 const resetQuery = () => { queryForm.drugName = ''; queryForm.status = ''; pagination.current = 1; loadData() }

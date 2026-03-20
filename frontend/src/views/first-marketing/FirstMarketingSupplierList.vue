@@ -4,7 +4,7 @@
     <el-card shadow="never" style="margin-bottom: 16px;">
       <el-form :model="searchForm" inline>
         <el-form-item label="企业名称">
-          <el-input v-model="searchForm.supplierName" placeholder="请输入企业名称" clearable style="width: 200px;" />
+          <el-input v-model="searchForm.supplierName" placeholder="请输入企业名称" clearable style="width: 200px;" @keydown.enter.prevent="handleSearch" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="全部" clearable style="width: 130px;">
@@ -29,7 +29,7 @@
         <el-button type="success" @click="aiDialogVisible = true" :icon="MagicStick">AI新增</el-button>
       </div>
 
-      <el-table :data="tableData" v-loading="loading" border stripe>
+      <el-table ref="tableRef" :data="tableData" v-loading="loading" border stripe highlight-current-row>
         <el-table-column prop="applyNo" label="申请编号" width="150" />
         <el-table-column prop="supplierName" label="企业名称" min-width="180" show-overflow-tooltip />
         <el-table-column prop="creditCode" label="统一社会信用代码" width="200" show-overflow-tooltip />
@@ -309,6 +309,7 @@ import {
   getApprovalLevel,
   uploadFile
 } from '@/api/firstMarketing'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const authStore = useAuthStore()
 
@@ -316,6 +317,7 @@ const authStore = useAuthStore()
 const searchForm = ref({ supplierName: '', status: '' })
 const tableData = ref([])
 const loading = ref(false)
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = ref({ current: 1, size: 10, total: 0 })
 const approvalLevel = ref('1')
 
@@ -370,6 +372,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records || []
       pagination.value.total = res.data.total || 0
+      selectFirstRow()
     }
   } finally {
     loading.value = false

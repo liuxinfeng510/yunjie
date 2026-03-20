@@ -12,6 +12,7 @@ public class LoginResponse {
     private String realName;
     private String role;
     private Long tenantId;
+    private String tenantName;
     private Long storeId;
     private String businessMode;
 }

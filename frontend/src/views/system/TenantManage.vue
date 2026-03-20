@@ -13,7 +13,7 @@
       <!-- 搜索栏 -->
       <el-form :inline="true" :model="queryForm" class="search-form">
         <el-form-item label="租户名称">
-          <el-input v-model="queryForm.name" placeholder="请输入租户名称" clearable />
+          <el-input v-model="queryForm.name" placeholder="请输入租户名称" clearable @keydown.enter.prevent="loadData" @keydown.up.prevent="handleArrowUp" @keydown.down.prevent="handleArrowDown" />
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="queryForm.status" placeholder="请选择状态" clearable>
@@ -110,10 +110,12 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Plus } from '@element-plus/icons-vue'
 import { getTenantPage, createTenant, updateTenant, deleteTenant, enableTenant, disableTenant } from '@/api/system'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const loading = ref(false)
 const submitting = ref(false)
 const tableData = ref([])
+const { tableRef, handleArrowUp, handleArrowDown, selectFirstRow } = useTableKeyboardNav(tableData)
 const dialogVisible = ref(false)
 const dialogTitle = ref('')
 const isEdit = ref(false)
@@ -156,6 +158,7 @@ const loadData = async () => {
     })
     tableData.value = res.data.records
     pagination.total = res.data.total
+    selectFirstRow()
   } catch (error) {
     ElMessage.error('加载租户列表失败')
   } finally {

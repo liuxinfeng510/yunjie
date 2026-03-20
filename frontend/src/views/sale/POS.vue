@@ -3,65 +3,132 @@
     <!-- 左侧：购物车+药品搜索 -->
     <div class="pos-left">
       <!-- 购物车区域（上部） -->
-      <el-card shadow="never" class="cart-card">
+      <el-card shadow="always" class="cart-card">
         <template #header>
           <div class="card-header">
             <span>购物车</span>
-            <el-button type="danger" size="small" text @click="clearCart">清空</el-button>
+            <div style="display:flex;align-items:center;gap:4px">
+              <el-popover v-model:visible="showColumnSettings" placement="bottom-end" :width="240" trigger="click">
+                <template #reference>
+                  <el-button size="small" text>
+                    <el-icon><Setting /></el-icon>
+                  </el-button>
+                </template>
+                <div class="column-settings">
+                  <div class="column-settings-title">列排序设置</div>
+                  <div v-for="(key, idx) in columnOrder" :key="key" class="column-settings-item">
+                    <span>{{ CART_COLUMN_DEFS.find(c => c.key === key)?.label }}</span>
+                    <span class="column-settings-btns">
+                      <el-button size="small" text :disabled="idx === 0" @click="moveColumnUp(idx)">
+                        <el-icon><Top /></el-icon>
+                      </el-button>
+                      <el-button size="small" text :disabled="idx === columnOrder.length - 1" @click="moveColumnDown(idx)">
+                        <el-icon><Bottom /></el-icon>
+                      </el-button>
+                    </span>
+                  </div>
+                  <el-button size="small" text type="primary" @click="resetColumnOrder" style="margin-top:8px">恢复默认</el-button>
+                </div>
+              </el-popover>
+              <el-button type="danger" size="small" text @click="clearCart">清空</el-button>
+            </div>
           </div>
         </template>
         
+        <!-- 普通药品表格 -->
         <el-table
-          :data="cartItems"
+          v-if="normalCartItems.length > 0"
+          :key="tableKey"
+          :data="normalCartItems"
           style="width: 100%"
           max-height="280"
           size="small"
+          stripe
           show-summary
           :summary-method="getSummaries"
+          @row-contextmenu="showCartContextMenu"
         >
-          <el-table-column prop="genericName" label="商品名称" min-width="120" show-overflow-tooltip />
-          <el-table-column prop="specification" label="规格" width="90" />
-          <el-table-column prop="manufacturer" label="生产厂家" min-width="100" show-overflow-tooltip />
-          <el-table-column prop="unit" label="单位" width="50" align="center" />
-          <el-table-column prop="batchNo" label="批号" width="100" show-overflow-tooltip />
-          <el-table-column prop="expireDate" label="到期时间" width="95" />
-          <el-table-column label="数量" width="100" align="center">
-            <template #default="{ row, $index }">
-              <el-input-number
-                v-model="row.quantity"
-                :min="1"
-                :max="row.stock"
-                size="small"
-                controls-position="right"
-                @change="updateCart"
-              />
-            </template>
-          </el-table-column>
-          <el-table-column prop="retailPrice" label="零售价" width="80" align="right">
-            <template #default="{ row }">
-              ¥{{ row.retailPrice?.toFixed(2) }}
-            </template>
-          </el-table-column>
-          <el-table-column label="金额" width="80" align="right">
-            <template #default="{ row }">
-              <span class="amount-text">¥{{ (row.quantity * row.retailPrice).toFixed(2) }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="medicalInsurance" label="医保" width="60" align="center">
-            <template #default="{ row }">
-              <el-tag v-if="row.medicalInsurance === '甲类'" type="success" size="small">甲</el-tag>
-              <el-tag v-else-if="row.medicalInsurance === '乙类'" type="warning" size="small">乙</el-tag>
-              <span v-else>-</span>
+          <el-table-column
+            v-for="col in sortedColumns"
+            :key="col.key"
+            :prop="col.prop"
+            :label="col.label"
+            :width="col.width"
+            :min-width="col.minWidth"
+            :align="col.align"
+            :show-overflow-tooltip="col.showOverflowTooltip"
+          >
+            <template v-if="col.custom" #default="{ row, $index }">
+              <el-input v-if="col.key === 'traceCode'" v-model="row.traceCode" size="small" placeholder="扫码" clearable />
+              <el-input-number v-else-if="col.key === 'quantity'" v-model="row.quantity" :min="1" :max="row.stock" size="small" controls-position="right" @change="updateCart" />
+              <template v-else-if="col.key === 'retailPrice'">
+                <template v-if="currentMember && row.memberPrice && row.memberPrice > 0">
+                  <span class="member-price-text">¥{{ row.memberPrice?.toFixed(2) }}</span>
+                  <span class="original-price-text">¥{{ row.retailPrice?.toFixed(2) }}</span>
+                </template>
+                <template v-else>
+                  <el-input-number v-if="row.allowPriceAdjust !== false" v-model="row.retailPrice" :min="0.01" :precision="2" size="small" controls-position="right" style="width: 100%" @change="updateCart" />
+                  <span v-else>¥{{ row.retailPrice?.toFixed(2) }}</span>
+                </template>
+              </template>
+              <span v-else-if="col.key === 'amount'" class="amount-text">¥{{ (row.quantity * getEffectivePrice(row)).toFixed(2) }}</span>
+              <template v-else-if="col.key === 'medicalInsurance'">
+                <el-tag v-if="row.medicalInsurance === '甲类'" type="success" size="small">甲</el-tag>
+                <el-tag v-else-if="row.medicalInsurance === '乙类'" type="warning" size="small">乙</el-tag>
+                <span v-else>-</span>
+              </template>
             </template>
           </el-table-column>
           <el-table-column label="操作" width="50" align="center" fixed="right">
-            <template #default="{ $index }">
-              <el-button type="danger" size="small" text @click="removeFromCart($index)">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" text @click="removeFromCart(cartItems.indexOf(row))">
                 <el-icon><Delete /></el-icon>
               </el-button>
             </template>
           </el-table-column>
         </el-table>
+
+        <!-- 中药处方区 -->
+        <div v-if="herbCartItems.length > 0" class="herb-prescription-section">
+          <div class="herb-prescription-header">
+            <span class="herb-prescription-title">中药处方</span>
+            <div class="herb-dose-control">
+              <span class="herb-dose-label">副数</span>
+              <el-input-number v-model="herbDoseCount" :min="1" :max="99" size="small" controls-position="right" />
+              <span class="herb-dose-unit">副</span>
+            </div>
+          </div>
+          <el-table :data="herbCartItems" style="width: 100%" max-height="200" size="small" stripe>
+            <el-table-column prop="genericName" label="药名" min-width="140" show-overflow-tooltip />
+            <el-table-column label="每剂(g)" width="110" align="center">
+              <template #default="{ row }">
+                <el-input-number v-model="row.dosePerGram" :min="0.5" :max="999" :precision="1" :step="1" size="small" controls-position="right" />
+              </template>
+            </el-table-column>
+            <el-table-column label="单价(元/g)" width="100" align="right">
+              <template #default="{ row }">
+                <span style="color:#8c919f;">¥{{ row.retailPrice?.toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="小计" width="100" align="right">
+              <template #default="{ row }">
+                <span class="amount-text">¥{{ (row.dosePerGram * herbDoseCount * getEffectivePrice(row)).toFixed(2) }}</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="" width="50" align="center">
+              <template #default="{ row }">
+                <el-button type="danger" size="small" text @click="removeFromCart(cartItems.indexOf(row))">
+                  <el-icon><Delete /></el-icon>
+                </el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+          <div class="herb-summary">
+            <span>每剂总重: {{ herbCartItems.reduce((s, i) => s + i.dosePerGram, 0).toFixed(1) }}g</span>
+            <span>{{ herbDoseCount }}副总重: {{ (herbCartItems.reduce((s, i) => s + i.dosePerGram, 0) * herbDoseCount).toFixed(1) }}g</span>
+            <span class="herb-total-amount">中药合计: ¥{{ herbCartItems.reduce((s, i) => s + i.dosePerGram * herbDoseCount * getEffectivePrice(i), 0).toFixed(2) }}</span>
+          </div>
+        </div>
         
         <div v-if="cartItems.length === 0" class="empty-cart">
           <el-empty description="购物车为空" :image-size="60" />
@@ -69,48 +136,57 @@
       </el-card>
 
       <!-- 药品搜索区域（下部） -->
-      <el-card shadow="never" class="search-card">
+      <el-card shadow="always" class="search-card">
         <template #header>
           <div class="card-header">
             <span>商品搜索</span>
+            <span
+              class="herb-toggle"
+              :class="{ active: herbOnly }"
+              @click="toggleHerbOnly"
+            >中药饮片</span>
+            <el-checkbox v-model="showZeroStock" size="small" style="margin-left: auto;">显示零库存</el-checkbox>
           </div>
         </template>
         
-        <el-input
-          ref="searchInputRef"
-          v-model="searchKeyword"
-          placeholder="商品名称/拼音/条码/批准文号"
-          clearable
-          size="large"
-          class="search-input"
-          @input="handleSearch"
-          @keydown.enter.prevent="handleEnterKey"
-          @keydown.up.prevent="handleArrowUp"
-          @keydown.down.prevent="handleArrowDown"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+        <div class="search-row">
+          <el-input
+            ref="searchInputRef"
+            v-model="searchKeyword"
+            placeholder="商品名称/拼音/条码/批准文号/追溯码"
+            clearable
+            size="large"
+            class="search-input"
+            @input="handleSearch"
+            @keydown.enter.prevent="handleEnterKey"
+            @keydown.up.prevent="handleArrowUp"
+            @keydown.down.prevent="handleArrowDown"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
 
         <div class="drug-list" v-loading="loading">
           <el-table
             ref="drugTableRef"
             :data="drugList"
-            style="width: 100%; margin-top: 12px"
+            style="width: 100%"
             max-height="220"
             size="small"
+            stripe
             @row-click="addToCart"
             highlight-current-row
             :current-row-key="selectedDrugId"
             row-key="id"
           >
-            <el-table-column prop="genericName" label="商品名称" min-width="120" show-overflow-tooltip />
-            <el-table-column prop="specification" label="规格" width="90" />
-            <el-table-column prop="manufacturer" label="生产厂家" min-width="100" show-overflow-tooltip />
-            <el-table-column prop="unit" label="单位" width="50" align="center" />
-            <el-table-column prop="batchNo" label="批号" width="90" show-overflow-tooltip />
-            <el-table-column prop="expiryDate" label="到期时间" width="95" />
+            <el-table-column prop="genericName" label="商品名称" min-width="180" show-overflow-tooltip />
+            <el-table-column prop="specification" label="规格" width="100" />
+            <el-table-column prop="manufacturer" label="生产厂家" min-width="150" show-overflow-tooltip />
+            <el-table-column prop="unit" label="单位" width="45" align="center" />
+            <el-table-column prop="batchNo" label="批号" width="110" show-overflow-tooltip />
+            <el-table-column prop="expireDate" label="到期时间" width="92" />
             <el-table-column prop="retailPrice" label="零售价" width="80" align="right">
               <template #default="{ row }">
                 ¥{{ row.retailPrice?.toFixed(2) }}
@@ -127,7 +203,7 @@
 
     <!-- 右侧：收费区域 -->
     <div class="pos-right">
-      <el-card shadow="never" class="payment-card">
+      <el-card shadow="always" class="payment-card">
         <template #header>
           <div class="card-header">
             <span>收费结算</span>
@@ -141,7 +217,9 @@
             v-model="memberPhone"
             placeholder="姓名/拼音/手机号"
             clearable
-            @keyup.enter="searchMember"
+            @keydown.enter.prevent="handleMemberEnter"
+            @keydown.up.prevent="handleMemberArrowUp"
+            @keydown.down.prevent="handleMemberArrowDown"
           >
             <template #prefix>
               <el-icon><User /></el-icon>
@@ -153,8 +231,9 @@
           <!-- 搜索结果列表 -->
           <div v-if="memberSearchList.length > 0" class="member-search-list">
             <div
-              v-for="item in memberSearchList" :key="item.id"
+              v-for="(item, idx) in memberSearchList" :key="item.id"
               class="member-search-item"
+              :class="{ active: idx === memberSelectedIndex }"
               @click="selectMember(item)"
             >
               <span class="name">{{ item.name }}</span>
@@ -162,7 +241,7 @@
               <span class="points-tag">{{ item.points || 0 }}积分</span>
             </div>
           </div>
-          <div v-if="currentMember" class="member-info">
+          <div v-if="currentMember" class="member-info" @contextmenu.prevent="showMemberContextMenu($event)">
             <div class="member-row">
               <span class="label">会员：</span>
               <span class="value">{{ currentMember.name }}</span>
@@ -174,11 +253,13 @@
               <span class="value points">{{ currentMember.points || 0 }}</span>
             </div>
           </div>
-        </div>
+
+          <!-- 会员右键菜单 -->
+          </div>
 
         <!-- 结算明细 -->
         <div class="section-title">结算明细</div>
-        <div class="settlement-section">
+        <div class="settlement-section" @contextmenu.prevent="showSettlementContextMenu($event)">
           <div class="summary-row">
             <span class="label">商品数量：</span>
             <span class="value">{{ cartItems.reduce((sum, item) => sum + item.quantity, 0) }} 件</span>
@@ -187,9 +268,25 @@
             <span class="label">商品金额：</span>
             <span class="value amount">¥{{ totalAmount.toFixed(2) }}</span>
           </div>
-          <div v-if="currentMember && memberDiscount < 1" class="summary-row discount">
-            <span class="label">会员折扣（{{ (memberDiscount * 10).toFixed(1) }}折）：</span>
-            <span class="value">-¥{{ (totalAmount * (1 - memberDiscount)).toFixed(2) }}</span>
+          <div v-if="currentMember && memberPriceSaving > 0" class="summary-row discount">
+            <span class="label">会员价优惠：</span>
+            <span class="value">-¥{{ memberPriceSaving.toFixed(2) }}</span>
+          </div>
+          <div class="summary-row discount">
+            <span class="label">
+              整单折扣<template v-if="currentMember && memberDiscount < 1">（{{ (memberDiscount * 10).toFixed(1) }}折）</template>
+              <el-switch
+                :model-value="enableWholeOrderDiscount"
+                size="small"
+                style="margin-left: 4px; vertical-align: middle;"
+                @change="toggleWholeOrderDiscount"
+              />
+            </span>
+            <span class="value">
+              <template v-if="!enableWholeOrderDiscount">未启用</template>
+              <template v-else-if="currentMember && memberDiscount < 1">-¥{{ wholeOrderDiscountSaving.toFixed(2) }}</template>
+              <template v-else>¥0.00</template>
+            </span>
           </div>
           <div class="summary-row">
             <span class="label">手动优惠：</span>
@@ -361,30 +458,130 @@
     <el-dialog
       v-model="printConfigVisible"
       title="打印设置"
-      width="400px"
+      width="640px"
     >
-      <el-form label-width="100px">
-        <el-form-item label="结算打印小票">
+      <el-form label-width="100px" size="default">
+        <el-form-item label="结算自动打印">
           <el-switch v-model="enablePrint" active-text="开启" inactive-text="关闭" />
         </el-form-item>
+
+        <el-divider content-position="left">基本设置</el-divider>
+
+        <el-form-item label="纸张宽度">
+          <el-radio-group v-model="receiptPaperWidth">
+            <el-radio-button value="58">58mm</el-radio-button>
+            <el-radio-button value="80">80mm</el-radio-button>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item label="小票店名">
+          <el-input v-model="receiptShopName" :placeholder="companyName || '留空则使用企业名称'" clearable />
+        </el-form-item>
+
+        <el-form-item label="页脚文本">
+          <el-input v-model="receiptFooter" type="textarea" :rows="2" placeholder="感谢您的光临！" />
+        </el-form-item>
+
+        <el-divider content-position="left">打印字段</el-divider>
+
+        <template v-for="(group, groupKey) in RECEIPT_FIELD_LABELS" :key="groupKey">
+          <el-form-item :label="group.label">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <el-checkbox
+                v-for="(fieldLabel, fieldKey) in group.fields"
+                :key="fieldKey"
+                v-model="receiptFields[groupKey][fieldKey]"
+              >{{ fieldLabel }}</el-checkbox>
+            </div>
+          </el-form-item>
+        </template>
+
         <el-form-item>
-          <span class="config-tip">开启后，结算完成将自动打印80mm小票</span>
+          <span style="color: #909399; font-size: 12px;">* 实付金额、商品数量和金额列始终显示</span>
+        </el-form-item>
+      </el-form>
+
+      <template #footer>
+        <el-button @click="resetReceiptConfig">恢复默认</el-button>
+        <el-button @click="printConfigVisible = false">取消</el-button>
+        <el-button type="primary" @click="saveReceiptConfig">保存</el-button>
+      </template>
+    </el-dialog>
+
+    <!-- 实名登记对话框 -->
+    <el-dialog v-model="realNameDialogVisible" title="实名登记" width="500px" @close="cancelRealName">
+      <el-alert type="warning" :closable="false" style="margin-bottom:16px">
+        <template #title>
+          以下药品需要实名登记：
+          <el-tag v-for="d in realNameDrugs" :key="d.id" size="small" style="margin:2px">
+            {{ d.genericName }}
+          </el-tag>
+        </template>
+      </el-alert>
+
+      <el-form :model="realNameForm" :rules="realNameRules" ref="realNameFormRef" label-width="90px">
+        <el-form-item label="姓名" prop="name">
+          <el-input v-model="realNameForm.name" placeholder="请输入购买者姓名" />
+        </el-form-item>
+        <el-form-item label="身份证号" prop="idCard">
+          <el-input v-model="realNameForm.idCard" maxlength="18" placeholder="请输入18位身份证号" @blur="parseIdCard" />
+        </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="性别">
+              <el-input v-model="realNameForm.gender" disabled />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="年龄">
+              <el-input v-model="realNameForm.age" disabled />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-form-item label="联系电话" prop="phone">
+          <el-input v-model="realNameForm.phone" placeholder="请输入联系电话" />
+        </el-form-item>
+        <el-form-item label="家庭住址">
+          <el-input v-model="realNameForm.address" placeholder="请输入家庭住址" />
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button @click="printConfigVisible = false">关闭</el-button>
+        <el-button @click="cancelRealName">取消</el-button>
+        <el-button type="primary" @click="submitRealName">确认登记</el-button>
       </template>
     </el-dialog>
+
+    <!-- 右键菜单（放在最外层避免被 overflow 截断） -->
+    <Teleport to="body">
+      <div v-if="memberContextMenu.visible" class="pos-context-menu" :style="{ top: memberContextMenu.y + 'px', left: memberContextMenu.x + 'px' }">
+        <div class="context-menu-item" @click="goMemberPage('purchase-history')">购药记录</div>
+        <div class="context-menu-item" @click="goMemberPage('reminder')">用药提醒</div>
+        <div class="context-menu-item" @click="goMemberPage('health')">健康画像</div>
+        <div class="context-menu-item" @click="goMemberPage('chronic-disease')">慢病管理</div>
+      </div>
+      <div v-if="settlementContextMenu.visible" class="pos-context-menu" :style="{ top: settlementContextMenu.y + 'px', left: settlementContextMenu.x + 'px' }">
+        <div class="context-menu-item" @click="goReconciliation">日终对账</div>
+      </div>
+      <div v-if="cartContextMenu.visible" class="pos-context-menu" :style="{ top: cartContextMenu.y + 'px', left: cartContextMenu.x + 'px' }">
+        <div class="context-menu-item context-menu-info">进货价：¥{{ cartContextMenu.costPrice }}</div>
+        <div class="context-menu-item" @click="goEditDrug">药品列表</div>
+      </div>
+    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import { onBeforeRouteLeave, useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Search, User, Delete, Wallet, ChatDotRound, CreditCard, FirstAidKit, ShoppingCart } from '@element-plus/icons-vue'
-import { getDrugPage } from '@/api/drug'
-import { searchMembers, getMemberLevelList } from '@/api/member'
+import { Search, User, Delete, Wallet, ChatDotRound, CreditCard, FirstAidKit, ShoppingCart, Setting, Top, Bottom } from '@element-plus/icons-vue'
+import { getDrugPage, getCategoryTree } from '@/api/drug'
+import { searchMembers, getMemberLevelList, getMember } from '@/api/member'
 import { createSaleOrder, createSuspendedOrder, getSuspendedOrderList, retrieveSuspendedOrder, deleteSuspendedOrder, getSuspendedOrderExpireMinutes, updateSuspendedOrderExpireMinutes } from '@/api/sale'
+import { getConfigByGroup, setConfigValue, getConfigValue } from '@/api/system'
+import { useAuthStore } from '@/store/auth'
+
+const authStore = useAuthStore()
 
 // 搜索和药品列表
 const searchKeyword = ref('')
@@ -394,20 +591,112 @@ const searchInputRef = ref(null)
 const drugTableRef = ref(null)
 const selectedIndex = ref(-1)
 const selectedDrugId = ref(null)
+const showZeroStock = ref(false)
+
+
+// 分类快捷标签
+// 分类快捷 - 中药饮片
+const herbOnly = ref(false)
+const herbCategoryIds = ref([])
+
+// 购物车列配置
+const CART_COLUMN_DEFS = [
+  { key: 'genericName', label: '商品名称', prop: 'genericName', minWidth: 180, showOverflowTooltip: true },
+  { key: 'specification', label: '规格', prop: 'specification', width: 100 },
+  { key: 'manufacturer', label: '生产厂家', prop: 'manufacturer', minWidth: 150, showOverflowTooltip: true },
+  { key: 'unit', label: '单位', prop: 'unit', width: 45, align: 'center' },
+  { key: 'batchNo', label: '批号', prop: 'batchNo', width: 110, showOverflowTooltip: true },
+  { key: 'expireDate', label: '到期时间', prop: 'expireDate', width: 92 },
+  { key: 'traceCode', label: '追溯码', width: 130, custom: true },
+  { key: 'quantity', label: '数量', width: 95, align: 'center', custom: true },
+  { key: 'retailPrice', label: '零售价', width: 105, align: 'right', custom: true },
+  { key: 'amount', label: '金额', width: 85, align: 'right', custom: true },
+  { key: 'medicalInsurance', label: '医保', prop: 'medicalInsurance', width: 55, align: 'center', custom: true },
+]
+
+const COLUMN_ORDER_KEY = 'pos_cart_column_order'
+const columnOrder = ref([])
+const tableKey = ref(0)
+const showColumnSettings = ref(false)
+
+const sortedColumns = computed(() => {
+  if (!columnOrder.value.length) return CART_COLUMN_DEFS
+  const map = Object.fromEntries(CART_COLUMN_DEFS.map(c => [c.key, c]))
+  return columnOrder.value.map(key => map[key]).filter(Boolean)
+})
+
+const loadColumnOrder = () => {
+  try {
+    const saved = localStorage.getItem(COLUMN_ORDER_KEY)
+    if (saved) {
+      const keys = JSON.parse(saved)
+      const validKeys = CART_COLUMN_DEFS.map(c => c.key)
+      const filtered = keys.filter(k => validKeys.includes(k))
+      const missing = validKeys.filter(k => !filtered.includes(k))
+      columnOrder.value = [...filtered, ...missing]
+    } else {
+      columnOrder.value = CART_COLUMN_DEFS.map(c => c.key)
+    }
+  } catch {
+    columnOrder.value = CART_COLUMN_DEFS.map(c => c.key)
+  }
+}
+
+const saveColumnOrder = () => {
+  localStorage.setItem(COLUMN_ORDER_KEY, JSON.stringify(columnOrder.value))
+  tableKey.value++
+}
+
+const moveColumnUp = (idx) => {
+  if (idx <= 0) return
+  const arr = [...columnOrder.value]
+  ;[arr[idx - 1], arr[idx]] = [arr[idx], arr[idx - 1]]
+  columnOrder.value = arr
+  saveColumnOrder()
+}
+
+const moveColumnDown = (idx) => {
+  if (idx >= columnOrder.value.length - 1) return
+  const arr = [...columnOrder.value]
+  ;[arr[idx], arr[idx + 1]] = [arr[idx + 1], arr[idx]]
+  columnOrder.value = arr
+  saveColumnOrder()
+}
+
+const resetColumnOrder = () => {
+  columnOrder.value = CART_COLUMN_DEFS.map(c => c.key)
+  saveColumnOrder()
+}
 
 // 购物车
 const cartItems = ref([])
+
+// 中药处方副数
+const herbDoseCount = ref(1)
+
+// 购物车分组
+const herbCartItems = computed(() => cartItems.value.filter(item => item.isHerb))
+const normalCartItems = computed(() => cartItems.value.filter(item => !item.isHerb))
 
 // 会员信息
 const memberPhone = ref('')
 const currentMember = ref(null)
 const memberLevels = ref([])
 const memberSearchList = ref([])
+const memberSelectedIndex = ref(-1)
 
 // 支付信息
 const discountAmount = ref(0)
-const paymentMethod = ref('')
+const paymentMethod = ref('CASH')
 const cashReceived = ref(0)
+
+// 整单折扣开关（持久化到 localStorage）
+const WHOLE_DISCOUNT_KEY = 'pos_whole_order_discount_enabled'
+const enableWholeOrderDiscount = ref(localStorage.getItem(WHOLE_DISCOUNT_KEY) !== 'false')
+const toggleWholeOrderDiscount = (val) => {
+  enableWholeOrderDiscount.value = val
+  localStorage.setItem(WHOLE_DISCOUNT_KEY, val ? 'true' : 'false')
+}
 
 // 挂单相关
 const retrieveDialogVisible = ref(false)
@@ -419,23 +708,111 @@ const expireMinutes = ref(60)
 
 // 打印相关
 const printConfigVisible = ref(false)
-const enablePrint = ref(true)
+const enablePrint = ref(false)
+const receiptPaperWidth = ref('58')
+const receiptShopName = ref('')
+const receiptFooter = ref('感谢您的光临！\n如有问题请保留此小票')
+const companyName = ref('')
+const tenantName = ref('')
+
+// 小票字段默认配置
+const DEFAULT_RECEIPT_FIELDS = {
+  header: { shopName: true, tenantName: true, subtitle: true },
+  orderInfo: { orderNo: true, dateTime: true, cashier: true },
+  memberInfo: { memberName: true, memberPhone: true },
+  itemDetail: { drugName: true, specification: true, batchNo: true, manufacturer: true, unitPrice: true },
+  summary: { itemCount: true, totalAmount: true, memberDiscount: true, wholeDiscount: true, manualDiscount: true, payMethod: true, cashInfo: true },
+  footer: { footerText: true }
+}
+
+// 字段分组标签映射（用于UI渲染）
+const RECEIPT_FIELD_LABELS = {
+  header: { label: '头部信息', fields: { shopName: '店名', tenantName: '租户名称', subtitle: '副标题' } },
+  orderInfo: { label: '订单信息', fields: { orderNo: '单号', dateTime: '日期时间', cashier: '收银员' } },
+  memberInfo: { label: '会员信息', fields: { memberName: '会员名称', memberPhone: '会员电话' } },
+  itemDetail: { label: '商品明细列', fields: { drugName: '商品名', specification: '规格', batchNo: '批号', manufacturer: '生产厂家', unitPrice: '单价' } },
+  summary: { label: '汇总区域', fields: { itemCount: '商品数量', totalAmount: '商品金额', memberDiscount: '会员价优惠', wholeDiscount: '整单折扣', manualDiscount: '手动优惠', payMethod: '支付方式', cashInfo: '现金/找零' } },
+  footer: { label: '页脚', fields: { footerText: '页脚文本' } }
+}
+
+const receiptFields = ref(JSON.parse(JSON.stringify(DEFAULT_RECEIPT_FIELDS)))
+
+// 实名登记相关
+const realNameDialogVisible = ref(false)
+const realNameFormRef = ref(null)
+const realNameDrugs = ref([])
+const realNameForm = reactive({ name: '', idCard: '', age: '', gender: '', phone: '', address: '' })
+const realNameRules = {
+  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  idCard: [{ required: true, message: '请输入身份证号', trigger: 'blur' },
+           { pattern: /^\d{17}[\dXx]$/, message: '身份证号格式不正确', trigger: 'blur' }],
+  phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }]
+}
+let pendingCheckoutResolve = null
 
 // 计算属性
+
+// 获取单品有效价格：有会员且有会员价时用会员价，否则用零售价
+const getEffectivePrice = (item) => {
+  if (currentMember.value && item.memberPrice && item.memberPrice > 0) {
+    return item.memberPrice
+  }
+  return item.retailPrice
+}
+
+// 原始零售总额（未应用任何折扣）
 const totalAmount = computed(() => {
-  return cartItems.value.reduce((sum, item) => sum + item.quantity * item.retailPrice, 0)
+  const normalTotal = normalCartItems.value.reduce(
+    (sum, item) => sum + item.quantity * item.retailPrice,
+    0
+  )
+  const herbTotal = herbCartItems.value.reduce(
+    (sum, item) => sum + item.dosePerGram * herbDoseCount.value * item.retailPrice,
+    0
+  )
+  return normalTotal + herbTotal
+})
+
+// 会员价后总额（会员价优先于整单折扣）
+const afterMemberPriceTotal = computed(() => {
+  const normalTotal = normalCartItems.value.reduce(
+    (sum, item) => sum + item.quantity * getEffectivePrice(item),
+    0
+  )
+  const herbTotal = herbCartItems.value.reduce(
+    (sum, item) => sum + item.dosePerGram * herbDoseCount.value * getEffectivePrice(item),
+    0
+  )
+  return normalTotal + herbTotal
+})
+
+// 会员价节省金额
+const memberPriceSaving = computed(() => {
+  return totalAmount.value - afterMemberPriceTotal.value
 })
 
 // 会员等级折扣
 const memberDiscount = computed(() => {
   if (!currentMember.value || !currentMember.value.levelId) return 1
   const level = memberLevels.value.find(l => l.id === currentMember.value.levelId)
-  return level ? level.discount : 1
+  if (!level || !level.discount) return 1
+  // discount 存的是百分比值（如 95 表示 95折），需转为系数
+  return level.discount > 1 ? level.discount / 100 : level.discount
+})
+
+// 整单折扣节省金额
+const wholeOrderDiscountSaving = computed(() => {
+  if (!enableWholeOrderDiscount.value || memberDiscount.value >= 1) return 0
+  return afterMemberPriceTotal.value * (1 - memberDiscount.value)
 })
 
 const payAmount = computed(() => {
-  const afterDiscount = totalAmount.value * memberDiscount.value
-  return Math.max(0, afterDiscount - discountAmount.value)
+  let amount = afterMemberPriceTotal.value
+  // 整单折扣（仅启用时生效）
+  if (enableWholeOrderDiscount.value && memberDiscount.value < 1) {
+    amount = amount * memberDiscount.value
+  }
+  return Math.max(0, amount - discountAmount.value)
 })
 
 // 找零金额
@@ -445,7 +822,7 @@ const changeAmount = computed(() => {
 
 // 搜索药品
 const handleSearch = async () => {
-  if (!searchKeyword.value.trim()) {
+  if (!searchKeyword.value.trim() && !herbOnly.value) {
     drugList.value = []
     selectedIndex.value = -1
     selectedDrugId.value = null
@@ -454,11 +831,18 @@ const handleSearch = async () => {
 
   try {
     loading.value = true
-    const res = await getDrugPage({
-      keyword: searchKeyword.value,
+    const params = {
       current: 1,
-      size: 20
-    })
+      size: 20,
+      showZeroStock: showZeroStock.value
+    }
+    if (searchKeyword.value.trim()) {
+      params.keyword = searchKeyword.value
+    }
+    if (herbOnly.value && herbCategoryIds.value.length > 0) {
+      params.categoryIds = herbCategoryIds.value.join(',')
+    }
+    const res = await getDrugPage(params)
     if (res.code === 200) {
       // API返回的stock字段已包含库存信息
       drugList.value = res.data.records || []
@@ -479,6 +863,12 @@ const handleSearch = async () => {
   } finally {
     loading.value = false
   }
+}
+
+// 切换中药饮片筛选
+const toggleHerbOnly = () => {
+  herbOnly.value = !herbOnly.value
+  handleSearch()
 }
 
 // 上键选择
@@ -521,22 +911,52 @@ const addToCart = (drug) => {
     return
   }
 
-  const existingItem = cartItems.value.find(item => item.id === drug.id)
-  if (existingItem) {
-    if (existingItem.quantity < stock) {
-      existingItem.quantity++
-      updateCart()
-    } else {
-      ElMessage.warning('库存不足')
+  // 中药饮片走处方模式（通过isHerb字段或分类ID判断）
+  const isDrugHerb = drug.isHerb || (drug.categoryId && herbCategoryIds.value.includes(drug.categoryId))
+  if (isDrugHerb) {
+    const existing = cartItems.value.find((item) => item.id === drug.id && item.isHerb)
+    if (existing) {
+      ElMessage.warning('该药材已在处方中')
+      return
     }
-  } else {
+    let defaultDose = 10
+    if (drug.dosageMin && drug.dosageMax) {
+      defaultDose =
+        Math.round(((Number(drug.dosageMin) + Number(drug.dosageMax)) / 2) * 10) / 10
+    } else if (drug.dosageMin) {
+      defaultDose = Number(drug.dosageMin)
+    } else if (drug.dosageMax) {
+      defaultDose = Number(drug.dosageMax)
+    }
     cartItems.value.push({
       ...drug,
+      isHerb: true,
+      dosePerGram: defaultDose,
       quantity: 1,
       stock: stock,
       batchNo: drug.batchNo || '-',
-      expireDate: drug.expireDate || '-'
+      expireDate: drug.expireDate || '-',
+      traceCode: ''
     })
+  } else {
+    const existingItem = cartItems.value.find((item) => item.id === drug.id && !item.isHerb)
+    if (existingItem) {
+      if (existingItem.quantity < stock) {
+        existingItem.quantity++
+        updateCart()
+      } else {
+        ElMessage.warning('库存不足')
+      }
+    } else {
+      cartItems.value.push({
+        ...drug,
+        quantity: 1,
+        stock: stock,
+        batchNo: drug.batchNo || '-',
+        expireDate: drug.expireDate || '-',
+        traceCode: ''
+      })
+    }
   }
 
   searchKeyword.value = ''
@@ -582,7 +1002,7 @@ const getSummaries = (param) => {
     if (column.property === 'quantity') {
       sums[index] = data.reduce((sum, item) => sum + item.quantity, 0)
     } else if (column.label === '金额') {
-      sums[index] = '¥' + data.reduce((sum, item) => sum + item.quantity * item.retailPrice, 0).toFixed(2)
+      sums[index] = '¥' + data.reduce((sum, item) => sum + item.quantity * getEffectivePrice(item), 0).toFixed(2)
     } else {
       sums[index] = ''
     }
@@ -595,6 +1015,7 @@ const searchMember = async () => {
   if (!memberPhone.value.trim()) {
     currentMember.value = null
     memberSearchList.value = []
+    memberSelectedIndex.value = -1
     return
   }
 
@@ -607,11 +1028,13 @@ const searchMember = async () => {
       } else {
         // 多个结果，显示列表让用户选
         memberSearchList.value = res.data
+        memberSelectedIndex.value = 0
         currentMember.value = null
       }
     } else {
       currentMember.value = null
       memberSearchList.value = []
+      memberSelectedIndex.value = -1
       ElMessage.warning('未找到该会员')
     }
   } catch (error) {
@@ -623,6 +1046,7 @@ const searchMember = async () => {
 const selectMember = (member) => {
   currentMember.value = member
   memberSearchList.value = []
+  memberSelectedIndex.value = -1
   ElMessage.success('已选择会员：' + member.name)
 }
 
@@ -631,6 +1055,123 @@ const clearMember = () => {
   currentMember.value = null
   memberPhone.value = ''
   memberSearchList.value = []
+  memberSelectedIndex.value = -1
+}
+
+// 会员右键菜单
+const router = useRouter()
+const route = useRoute()
+const memberContextMenu = reactive({ visible: false, x: 0, y: 0 })
+
+const showMemberContextMenu = (e) => {
+  memberContextMenu.x = e.clientX
+  memberContextMenu.y = e.clientY
+  memberContextMenu.visible = true
+}
+
+const hideMemberContextMenu = () => {
+  memberContextMenu.visible = false
+}
+
+const goMemberPage = (page) => {
+  hideMemberContextMenu()
+  if (!currentMember.value) return
+  const memberId = currentMember.value.id
+  const memberName = currentMember.value.name
+  const pathMap = {
+    'purchase-history': '/member/purchase-history',
+    'reminder': '/member/reminder',
+    'health': '/member/health',
+    'chronic-disease': '/member/chronic-disease'
+  }
+  router.push({ path: pathMap[page], query: { memberId, memberName, from: 'pos' } })
+}
+
+// 结算区右键菜单
+const settlementContextMenu = reactive({ visible: false, x: 0, y: 0 })
+
+const showSettlementContextMenu = (e) => {
+  settlementContextMenu.x = e.clientX
+  settlementContextMenu.y = e.clientY
+  settlementContextMenu.visible = true
+}
+
+const hideSettlementContextMenu = () => {
+  settlementContextMenu.visible = false
+}
+
+const goReconciliation = () => {
+  hideSettlementContextMenu()
+  router.push({ path: '/sale/reconciliation', query: { from: 'pos' } })
+}
+
+// 购物车右键菜单
+const cartContextMenu = reactive({ visible: false, x: 0, y: 0, costPrice: '--', drugId: null })
+
+const showCartContextMenu = (row, column, event) => {
+  event.preventDefault()
+  cartContextMenu.x = event.clientX
+  cartContextMenu.y = event.clientY
+  cartContextMenu.costPrice = row.costPrice != null ? Number(row.costPrice).toFixed(2) : '--'
+  cartContextMenu.drugId = row.drugId || row.id
+  cartContextMenu.visible = true
+}
+
+const hideCartContextMenu = () => {
+  cartContextMenu.visible = false
+}
+
+const goEditDrug = () => {
+  const drugId = cartContextMenu.drugId
+  hideCartContextMenu()
+  router.push({ path: '/drug', query: { editId: drugId, from: 'pos' } })
+}
+
+const hideAllContextMenus = () => {
+  hideMemberContextMenu()
+  hideSettlementContextMenu()
+  hideCartContextMenu()
+}
+
+onMounted(() => {
+  document.addEventListener('click', hideAllContextMenus)
+})
+onUnmounted(() => {
+  document.removeEventListener('click', hideAllContextMenus)
+})
+
+// 会员列表键盘导航
+const handleMemberEnter = (e) => {
+  if (e.isComposing) return
+  if (memberSearchList.value.length > 0 && memberSelectedIndex.value >= 0) {
+    selectMember(memberSearchList.value[memberSelectedIndex.value])
+  } else {
+    searchMember()
+  }
+}
+const handleMemberArrowUp = (e) => {
+  if (e.isComposing) return
+  if (memberSearchList.value.length === 0) return
+  if (memberSelectedIndex.value > 0) {
+    memberSelectedIndex.value--
+    scrollMemberItemIntoView()
+  }
+}
+const handleMemberArrowDown = (e) => {
+  if (e.isComposing) return
+  if (memberSearchList.value.length === 0) return
+  if (memberSelectedIndex.value < memberSearchList.value.length - 1) {
+    memberSelectedIndex.value++
+    scrollMemberItemIntoView()
+  }
+}
+const scrollMemberItemIntoView = () => {
+  nextTick(() => {
+    const activeItem = document.querySelector('.member-search-item.active')
+    if (activeItem) {
+      activeItem.scrollIntoView({ block: 'nearest' })
+    }
+  })
 }
 
 // 挂单
@@ -639,7 +1180,7 @@ const handleHangUp = async () => {
     const orderData = {
       memberId: currentMember.value?.id,
       memberName: currentMember.value?.name,
-      items: JSON.stringify(cartItems.value),
+      items: JSON.stringify({ _herbDoseCount: herbDoseCount.value, items: cartItems.value }),
       totalAmount: totalAmount.value
     }
     
@@ -648,6 +1189,7 @@ const handleHangUp = async () => {
       ElMessage.success(`挂单成功，单号: ${res.data.orderNo}`)
       // 清空购物车
       cartItems.value = []
+      herbDoseCount.value = 1
       discountAmount.value = 0
       memberPhone.value = ''
       currentMember.value = null
@@ -696,9 +1238,18 @@ const handleRetrieve = async (order) => {
   try {
     const res = await retrieveSuspendedOrder(order.id)
     if (res.code === 200) {
-      // 恢复购物车
-      const items = JSON.parse(res.data.items || '[]')
-      cartItems.value = items
+      // 恢复购物车（兼容新旧格式）
+      const parsed = JSON.parse(res.data.items || '[]')
+      if (parsed._herbDoseCount !== undefined && Array.isArray(parsed.items)) {
+        herbDoseCount.value = parsed._herbDoseCount || 1
+        cartItems.value = parsed.items
+      } else if (Array.isArray(parsed)) {
+        herbDoseCount.value = 1
+        cartItems.value = parsed
+      } else {
+        herbDoseCount.value = 1
+        cartItems.value = []
+      }
       
       // 恢复会员信息
       if (res.data.memberId) {
@@ -768,158 +1319,424 @@ const showPrintConfig = () => {
   printConfigVisible.value = true
 }
 
+// 加载小票打印配置
+const loadReceiptConfig = async () => {
+  try {
+    const res = await getConfigByGroup('sale')
+    if (res.code === 200 && res.data) {
+      const configs = {}
+      ;(res.data || []).forEach(item => { configs[item.configKey] = item.configValue })
+      
+      if (configs['sale.receipt_printer'] !== undefined) {
+        enablePrint.value = configs['sale.receipt_printer'] === 'true'
+      }
+      if (configs['sale.receipt_paper_width']) {
+        receiptPaperWidth.value = configs['sale.receipt_paper_width']
+      }
+      if (configs['sale.receipt_shop_name'] !== undefined) {
+        receiptShopName.value = configs['sale.receipt_shop_name']
+      }
+      if (configs['sale.receipt_footer'] !== undefined) {
+        receiptFooter.value = configs['sale.receipt_footer']
+      }
+      if (configs['sale.receipt_fields']) {
+        try {
+          receiptFields.value = JSON.parse(configs['sale.receipt_fields'])
+        } catch (e) {
+          receiptFields.value = JSON.parse(JSON.stringify(DEFAULT_RECEIPT_FIELDS))
+        }
+      }
+    }
+    // 获取企业名称作为店名回退
+    try {
+      const nameRes = await getConfigValue('system.company_name')
+      if (nameRes.code === 200 && nameRes.data) {
+        companyName.value = nameRes.data
+      }
+    } catch (e) { /* ignore */ }
+    // 获取租户名称
+    tenantName.value = authStore.user?.tenantName || ''
+  } catch (error) {
+    console.warn('加载打印配置失败', error)
+  }
+}
+
+// 保存小票打印配置
+const saveReceiptConfig = async () => {
+  try {
+    await Promise.all([
+      setConfigValue({ group: 'sale', key: 'sale.receipt_printer', value: enablePrint.value ? 'true' : 'false', valueType: 'boolean', description: '是否启用小票打印' }),
+      setConfigValue({ group: 'sale', key: 'sale.receipt_paper_width', value: receiptPaperWidth.value, valueType: 'string', description: '小票纸张宽度(58/80mm)' }),
+      setConfigValue({ group: 'sale', key: 'sale.receipt_shop_name', value: receiptShopName.value, valueType: 'string', description: '小票店名' }),
+      setConfigValue({ group: 'sale', key: 'sale.receipt_footer', value: receiptFooter.value, valueType: 'string', description: '小票页脚文本' }),
+      setConfigValue({ group: 'sale', key: 'sale.receipt_fields', value: JSON.stringify(receiptFields.value), valueType: 'json', description: '小票打印字段配置' })
+    ])
+    ElMessage.success('打印配置已保存')
+    printConfigVisible.value = false
+  } catch (error) {
+    ElMessage.error('保存打印配置失败')
+  }
+}
+
+// 恢复默认打印配置
+const resetReceiptConfig = () => {
+  receiptPaperWidth.value = '58'
+  receiptShopName.value = ''
+  receiptFooter.value = '感谢您的光临！\n如有问题请保留此小票'
+  receiptFields.value = JSON.parse(JSON.stringify(DEFAULT_RECEIPT_FIELDS))
+}
+
 // 打印小票
-const printReceipt = (orderNo) => {
-  const printWindow = window.open('', '_blank', 'width=320,height=600')
+// ========== 小票打印三层架构 ==========
+
+// 第一层：收集小票数据
+const buildReceiptData = (orderNo) => {
   const now = new Date()
   const dateStr = now.toLocaleString('zh-CN')
+  const shopName = receiptShopName.value || companyName.value || '药房'
+  const cashierName = authStore.user?.realName || '收银员'
   
-  // 生成商品明细HTML
-  const itemsHtml = cartItems.value.map(item => `
-    <tr>
-      <td colspan="4" style="text-align:left;padding:2px 0;border-bottom:1px dashed #ccc;">
-        ${item.genericName || item.tradeName}
-      </td>
-    </tr>
-    <tr>
-      <td style="font-size:11px;color:#666;">${item.specification || '-'}</td>
-      <td style="font-size:11px;color:#666;">${item.batchNo || '-'}</td>
-      <td style="text-align:right;">${item.quantity}</td>
-      <td style="text-align:right;">¥${(item.quantity * item.retailPrice).toFixed(2)}</td>
-    </tr>
-    <tr>
-      <td colspan="4" style="font-size:10px;color:#999;padding-bottom:4px;">
-        ${(item.manufacturer || '').substring(0, 20)}${item.manufacturer?.length > 20 ? '...' : ''} | 单价:¥${item.retailPrice.toFixed(2)}
-      </td>
-    </tr>
-  `).join('')
+  return {
+    shopName,
+    tenantName: tenantName.value || '',
+    subtitle: '销售小票',
+    orderNo: orderNo || '-',
+    dateTime: dateStr,
+    cashierName,
+    member: currentMember.value ? {
+      name: currentMember.value.name,
+      phone: currentMember.value.phone
+    } : null,
+    items: normalCartItems.value.map(item => {
+      const ep = getEffectivePrice(item)
+      return {
+        name: item.genericName || item.tradeName,
+        specification: item.specification || '-',
+        batchNo: item.batchNo || '-',
+        quantity: item.quantity,
+        amount: (item.quantity * ep).toFixed(2),
+        manufacturer: item.manufacturer || '',
+        unitPrice: ep.toFixed(2)
+      }
+    }),
+    itemCount: normalCartItems.value.reduce((sum, item) => sum + item.quantity, 0),
+    totalAmount: totalAmount.value.toFixed(2),
+    memberPriceSaving: memberPriceSaving.value,
+    wholeOrderDiscountSaving: wholeOrderDiscountSaving.value,
+    memberDiscountRate: memberDiscount.value,
+    enableWholeOrderDiscount: enableWholeOrderDiscount.value,
+    discountAmount: discountAmount.value,
+    paymentLabel: getPaymentLabel(paymentMethod.value),
+    paymentMethod: paymentMethod.value,
+    cashReceived: cashReceived.value,
+    changeAmount: changeAmount.value,
+    payAmount: payAmount.value.toFixed(2),
+    footerText: receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票'
+  }
+}
 
-  const html = `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <meta charset="utf-8">
-      <title>销售小票</title>
-      <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { 
-          font-family: 'Microsoft YaHei', sans-serif; 
-          width: 80mm; 
-          padding: 5mm;
-          font-size: 12px;
-        }
-        .header { text-align: center; margin-bottom: 10px; }
-        .shop-name { font-size: 16px; font-weight: bold; }
-        .divider { border-top: 1px dashed #000; margin: 8px 0; }
-        .info-row { display: flex; justify-content: space-between; margin: 3px 0; }
-        .items-table { width: 100%; border-collapse: collapse; margin: 8px 0; }
-        .items-table td { padding: 2px 0; vertical-align: top; }
-        .total-section { margin-top: 10px; }
-        .total-row { display: flex; justify-content: space-between; margin: 4px 0; }
-        .total-amount { font-size: 18px; font-weight: bold; }
-        .footer { text-align: center; margin-top: 15px; font-size: 11px; color: #666; }
-        @media print {
-          body { width: 80mm; }
-          @page { size: 80mm auto; margin: 0; }
-        }
-      </style>
-    </head>
-    <body>
-      <div class="header">
-        <div class="shop-name">云界智慧药房</div>
-        <div style="font-size:11px;color:#666;margin-top:4px;">销售小票</div>
-      </div>
-      
-      <div class="divider"></div>
-      
-      <div class="info-row">
-        <span>单号:</span>
-        <span>${orderNo || '-'}</span>
-      </div>
-      <div class="info-row">
-        <span>时间:</span>
-        <span>${dateStr}</span>
-      </div>
-      <div class="info-row">
-        <span>收银员:</span>
-        <span>药房管理员</span>
-      </div>
-      ${currentMember.value ? `
-      <div class="info-row">
-        <span>会员:</span>
-        <span>${currentMember.value.name} (${currentMember.value.phone})</span>
-      </div>
-      ` : ''}
-      
-      <div class="divider"></div>
-      
-      <table class="items-table">
-        <thead>
-          <tr style="font-weight:bold;border-bottom:1px solid #000;">
-            <td>规格</td>
-            <td>批号</td>
-            <td style="text-align:right;">数量</td>
-            <td style="text-align:right;">金额</td>
-          </tr>
-        </thead>
-        <tbody>
-          ${itemsHtml}
-        </tbody>
-      </table>
-      
-      <div class="divider"></div>
-      
-      <div class="total-section">
-        <div class="total-row">
-          <span>商品数量:</span>
-          <span>${cartItems.value.reduce((sum, item) => sum + item.quantity, 0)} 件</span>
-        </div>
-        <div class="total-row">
-          <span>商品金额:</span>
-          <span>¥${totalAmount.value.toFixed(2)}</span>
-        </div>
-        ${discountAmount.value > 0 ? `
-        <div class="total-row">
-          <span>优惠金额:</span>
-          <span>-¥${discountAmount.value.toFixed(2)}</span>
-        </div>
-        ` : ''}
-        <div class="total-row">
-          <span>支付方式:</span>
-          <span>${getPaymentLabel(paymentMethod.value)}</span>
-        </div>
-        ${paymentMethod.value === 'CASH' && cashReceived.value > 0 ? `
-        <div class="total-row">
-          <span>收取现金:</span>
-          <span>¥${cashReceived.value.toFixed(2)}</span>
-        </div>
-        <div class="total-row">
-          <span>找零:</span>
-          <span>¥${changeAmount.value.toFixed(2)}</span>
-        </div>
-        ` : ''}
-        <div class="total-row total-amount">
-          <span>实付金额:</span>
-          <span style="color:#e6500a;">¥${payAmount.value.toFixed(2)}</span>
-        </div>
-      </div>
-      
-      <div class="divider"></div>
-      
-      <div class="footer">
-        <p>感谢您的光临！</p>
-        <p style="margin-top:5px;">如有问题请保留此小票</p>
-      </div>
-      
-      <script>
-        window.onload = function() {
-          window.print();
-        }
-      <\/script>
-    </body>
-    </html>
-  `
-  
+// 第二层：根据配置生成 HTML
+const generateReceiptHtml = (data, fields, paperWidth) => {
+  const is58 = paperWidth === '58'
+  const bodyWidth = is58 ? '58mm' : '80mm'
+  const bodyPadding = is58 ? '3mm' : '5mm'
+  const baseFontSize = is58 ? '11px' : '12px'
+  const shopNameSize = is58 ? '14px' : '16px'
+  const tenantNameSize = is58 ? '11px' : '12px'
+  const totalFontSize = is58 ? '15px' : '18px'
+  const mfgMaxLen = is58 ? 12 : 20
+
+  // -- 头部 --
+  let headerHtml = ''
+  if (fields.header?.shopName) {
+    headerHtml += `<div class="shop-name" style="font-size:${shopNameSize};">${data.shopName}</div>`
+  }
+  if (fields.header?.tenantName && data.tenantName) {
+    headerHtml += `<div style="font-size:${tenantNameSize};color:#444;margin-top:2px;">${data.tenantName}</div>`
+  }
+  if (fields.header?.subtitle) {
+    headerHtml += `<div style="font-size:11px;color:#666;margin-top:4px;">${data.subtitle}</div>`
+  }
+
+  // -- 订单信息 --
+  let orderInfoHtml = ''
+  if (fields.orderInfo?.orderNo) {
+    orderInfoHtml += `<div class="info-row"><span>单号:</span><span>${data.orderNo}</span></div>`
+  }
+  if (fields.orderInfo?.dateTime) {
+    orderInfoHtml += `<div class="info-row"><span>时间:</span><span>${data.dateTime}</span></div>`
+  }
+  if (fields.orderInfo?.cashier) {
+    orderInfoHtml += `<div class="info-row"><span>收银员:</span><span>${data.cashierName}</span></div>`
+  }
+
+  // -- 会员信息 --
+  let memberInfoHtml = ''
+  if (data.member) {
+    const parts = []
+    if (fields.memberInfo?.memberName) parts.push(data.member.name)
+    if (fields.memberInfo?.memberPhone) parts.push(data.member.phone)
+    if (parts.length > 0) {
+      memberInfoHtml = `<div class="info-row"><span>会员:</span><span>${parts.join(' ')}</span></div>`
+    }
+  }
+
+  // -- 商品明细 --
+  // 动态表头列
+  const showSpec = fields.itemDetail?.specification !== false
+  const showBatch = fields.itemDetail?.batchNo !== false
+  const showMfg = fields.itemDetail?.manufacturer !== false
+  const showUnitPrice = fields.itemDetail?.unitPrice !== false
+
+  let theadCols = ''
+  if (showSpec) theadCols += '<td>规格</td>'
+  if (showBatch) theadCols += '<td>批号</td>'
+  theadCols += '<td style="text-align:right;">数量</td><td style="text-align:right;">金额</td>'
+
+  const colCount = (showSpec ? 1 : 0) + (showBatch ? 1 : 0) + 2
+
+  const itemsHtml = data.items.map(item => {
+    let rows = ''
+    // 商品名称行
+    if (fields.itemDetail?.drugName !== false) {
+      rows += `<tr><td colspan="${colCount}" style="text-align:left;padding:2px 0;border-bottom:1px dashed #ccc;">${item.name}</td></tr>`
+    }
+    // 明细数据行
+    let detailCols = ''
+    if (showSpec) detailCols += `<td style="font-size:${is58 ? '10px' : '11px'};color:#666;">${item.specification}</td>`
+    if (showBatch) detailCols += `<td style="font-size:${is58 ? '10px' : '11px'};color:#666;">${item.batchNo}</td>`
+    detailCols += `<td style="text-align:right;">${item.quantity}</td>`
+    detailCols += `<td style="text-align:right;">¥${item.amount}</td>`
+    rows += `<tr>${detailCols}</tr>`
+    // 厂家/单价行
+    const extraParts = []
+    if (showMfg && item.manufacturer) {
+      const mfg = item.manufacturer.length > mfgMaxLen ? item.manufacturer.substring(0, mfgMaxLen) + '...' : item.manufacturer
+      extraParts.push(mfg)
+    }
+    if (showUnitPrice) extraParts.push('单价:¥' + item.unitPrice)
+    if (extraParts.length > 0) {
+      rows += `<tr><td colspan="${colCount}" style="font-size:${is58 ? '9px' : '10px'};color:#999;padding-bottom:4px;">${extraParts.join(' | ')}</td></tr>`
+    }
+    return rows
+  }).join('')
+
+  // -- 汇总区域 --
+  let summaryHtml = ''
+  if (fields.summary?.itemCount !== false) {
+    summaryHtml += `<div class="total-row"><span>商品数量:</span><span>${data.itemCount} 件</span></div>`
+  }
+  if (fields.summary?.totalAmount !== false) {
+    summaryHtml += `<div class="total-row"><span>商品金额:</span><span>¥${data.totalAmount}</span></div>`
+  }
+  if (fields.summary?.memberDiscount !== false && data.memberPriceSaving > 0) {
+    summaryHtml += `<div class="total-row"><span>会员价优惠:</span><span>-¥${data.memberPriceSaving.toFixed(2)}</span></div>`
+  }
+  if (fields.summary?.wholeDiscount !== false && data.enableWholeOrderDiscount && data.wholeOrderDiscountSaving > 0) {
+    summaryHtml += `<div class="total-row"><span>整单折扣(${(data.memberDiscountRate * 10).toFixed(1)}折):</span><span>-¥${data.wholeOrderDiscountSaving.toFixed(2)}</span></div>`
+  }
+  if (fields.summary?.manualDiscount !== false && data.discountAmount > 0) {
+    summaryHtml += `<div class="total-row"><span>手动优惠:</span><span>-¥${data.discountAmount.toFixed(2)}</span></div>`
+  }
+  if (fields.summary?.payMethod !== false) {
+    summaryHtml += `<div class="total-row"><span>支付方式:</span><span>${data.paymentLabel}</span></div>`
+  }
+  if (fields.summary?.cashInfo !== false && data.paymentMethod === 'CASH' && data.cashReceived > 0) {
+    summaryHtml += `<div class="total-row"><span>收取现金:</span><span>¥${data.cashReceived.toFixed(2)}</span></div>`
+    summaryHtml += `<div class="total-row"><span>找零:</span><span>¥${data.changeAmount.toFixed(2)}</span></div>`
+  }
+  // 实付金额始终显示
+  summaryHtml += `<div class="total-row total-amount"><span>实付金额:</span><span style="color:#e6500a;">¥${data.payAmount}</span></div>`
+
+  // -- 页脚 --
+  let footerHtml = ''
+  if (fields.footer?.footerText !== false) {
+    const lines = data.footerText.split(/\\n|\n/).map(l => `<p>${l}</p>`).join('')
+    footerHtml = `<div class="footer">${lines}</div>`
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>销售小票</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: 'Microsoft YaHei', 'SimHei', sans-serif; width: 100%; max-width: ${bodyWidth}; padding: ${bodyPadding}; font-size: ${baseFontSize}; color: #000; margin: 0 auto; }
+    .header { text-align: center; margin-bottom: 10px; }
+    .shop-name { font-weight: bold; }
+    .divider { border-top: 1px dashed #000; margin: 8px 0; }
+    .info-row { display: flex; justify-content: space-between; margin: 3px 0; }
+    .items-table { width: 100%; border-collapse: collapse; margin: 8px 0; table-layout: fixed; }
+    .items-table td { padding: 2px 0; vertical-align: top; word-break: break-all; }
+    .total-section { margin-top: 10px; }
+    .total-row { display: flex; justify-content: space-between; margin: 4px 0; }
+    .total-amount { font-size: ${totalFontSize}; font-weight: bold; }
+    .footer { text-align: center; margin-top: 15px; font-size: ${is58 ? '10px' : '11px'}; color: #666; }
+    .footer p { margin-top: 3px; }
+    @page { size: ${bodyWidth} auto; margin: 0mm; }
+    @media print { body { width: 100%; max-width: none; margin: 0; padding: ${bodyPadding}; } }
+  </style>
+</head>
+<body>
+  ${headerHtml ? `<div class="header">${headerHtml}</div>` : ''}
+  <div class="divider"></div>
+  ${orderInfoHtml}${memberInfoHtml}
+  <div class="divider"></div>
+  <table class="items-table">
+    <thead><tr style="font-weight:bold;border-bottom:1px solid #000;">${theadCols}</tr></thead>
+    <tbody>${itemsHtml}</tbody>
+  </table>
+  <div class="divider"></div>
+  <div class="total-section">${summaryHtml}</div>
+  <div class="divider"></div>
+  ${footerHtml}
+  <script>
+    window.onload = function() {
+      // 延迟打印确保内容渲染完成
+      setTimeout(function() { window.print(); }, 200);
+    }
+  <\/script>
+</body>
+</html>`
+}
+
+// 第三层：执行打印
+const printReceipt = (orderNo) => {
+  const printWindow = window.open('', '_blank', 'width=320,height=600')
+  if (!printWindow) {
+    ElMessage.warning('浏览器拦截了打印窗口，请允许弹窗后重试')
+    return
+  }
+  const data = buildReceiptData(orderNo)
+  const html = generateReceiptHtml(data, receiptFields.value, receiptPaperWidth.value)
+  printWindow.document.write(html)
+  printWindow.document.close()
+}
+
+// ========== 中药处方笺打印 ==========
+
+const buildHerbReceiptData = (orderNo) => {
+  const now = new Date()
+  const dateStr = now.toLocaleString('zh-CN')
+  const shopName = receiptShopName.value || companyName.value || '药房'
+  const cashierName = authStore.user?.realName || '收银员'
+  const dc = herbDoseCount.value
+
+  const items = herbCartItems.value.map((item) => {
+    const ep = getEffectivePrice(item)
+    return {
+      name: item.genericName || item.tradeName,
+      dosePerGram: item.dosePerGram,
+      pricePerGram: ep,
+      amount: (item.dosePerGram * dc * ep).toFixed(2)
+    }
+  })
+
+  const perDoseTotalWeight = herbCartItems.value.reduce((s, i) => s + i.dosePerGram, 0)
+  const totalWeight = perDoseTotalWeight * dc
+  const herbTotal = herbCartItems.value.reduce(
+    (s, i) => s + i.dosePerGram * dc * getEffectivePrice(i),
+    0
+  )
+
+  return {
+    shopName,
+    tenantName: tenantName.value || '',
+    subtitle: '中药处方笺',
+    orderNo: orderNo || '-',
+    dateTime: dateStr,
+    cashierName,
+    member: currentMember.value
+      ? { name: currentMember.value.name, phone: currentMember.value.phone }
+      : null,
+    doseCount: dc,
+    items,
+    perDoseTotalWeight: Math.round(perDoseTotalWeight * 10) / 10,
+    totalWeight: Math.round(totalWeight * 10) / 10,
+    herbTotal: herbTotal.toFixed(2),
+    footerText: receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票'
+  }
+}
+
+const generateHerbReceiptHtml = (data, paperWidth) => {
+  const width = paperWidth === '80' ? '76mm' : '56mm'
+  const isWide = paperWidth === '80'
+
+  let memberHtml = ''
+  if (data.member) {
+    memberHtml = `<tr><td style="color:#555;">会员:</td><td>${data.member.name} ${data.member.phone || ''}</td></tr>`
+  }
+
+  const itemsHtml = data.items
+    .map(
+      (item) => `
+    <tr>
+      <td style="padding:4px 0;">${item.name}</td>
+      <td style="text-align:right;padding:4px 0;">${item.dosePerGram}g</td>
+      <td style="text-align:right;padding:4px 0;">¥${item.amount}</td>
+    </tr>`
+    )
+    .join('')
+
+  return `<!DOCTYPE html><html><head><meta charset="utf-8">
+<style>
+  @page { size: ${width} auto; margin: 2mm; }
+  body { font-family: '微软雅黑','SimHei',sans-serif; font-size: ${isWide ? '13px' : '12px'}; color: #222; margin: 0; padding: 4mm; width: ${width}; box-sizing: border-box; }
+  .header { text-align: center; margin-bottom: 6px; }
+  .shop-name { font-size: ${isWide ? '18px' : '16px'}; font-weight: 700; }
+  .subtitle { font-size: ${isWide ? '15px' : '13px'}; font-weight: 600; color: #2e7d32; margin-top: 2px; }
+  .divider { border: none; border-top: 1px dashed #999; margin: 6px 0; }
+  .info-table { width: 100%; font-size: ${isWide ? '12px' : '11px'}; }
+  .info-table td { padding: 2px 0; }
+  .dose-label { text-align: center; font-size: ${isWide ? '16px' : '14px'}; font-weight: 700; color: #2e7d32; padding: 6px 0; }
+  .items-table { width: 100%; border-collapse: collapse; font-size: ${isWide ? '12px' : '11px'}; }
+  .items-table th { border-bottom: 1px solid #999; padding: 4px 0; text-align: left; font-weight: 600; }
+  .items-table th:nth-child(2), .items-table th:nth-child(3) { text-align: right; }
+  .summary { font-size: ${isWide ? '12px' : '11px'}; margin-top: 4px; }
+  .summary td { padding: 2px 0; }
+  .total-line { font-size: ${isWide ? '15px' : '13px'}; font-weight: 700; color: #d84315; }
+  .footer { text-align: center; font-size: ${isWide ? '11px' : '10px'}; color: #888; margin-top: 8px; white-space: pre-line; }
+</style></head><body>
+<div class="header">
+  <div class="shop-name">${data.shopName}</div>
+  ${data.tenantName ? `<div style="font-size:11px;color:#666;">${data.tenantName}</div>` : ''}
+  <div class="subtitle">${data.subtitle}</div>
+</div>
+<hr class="divider">
+<table class="info-table">
+  <tr><td style="color:#555;">单号:</td><td>${data.orderNo}</td></tr>
+  <tr><td style="color:#555;">时间:</td><td>${data.dateTime}</td></tr>
+  <tr><td style="color:#555;">收银员:</td><td>${data.cashierName}</td></tr>
+  ${memberHtml}
+</table>
+<hr class="divider">
+<div class="dose-label">${data.doseCount} 副</div>
+<hr class="divider">
+<table class="items-table">
+  <tr><th>药名</th><th>克/剂</th><th>小计</th></tr>
+  ${itemsHtml}
+</table>
+<hr class="divider">
+<table class="summary">
+  <tr><td>每剂总重:</td><td style="text-align:right;">${data.perDoseTotalWeight}g</td></tr>
+  <tr><td>${data.doseCount}副总重:</td><td style="text-align:right;">${data.totalWeight}g</td></tr>
+  <tr><td class="total-line">合计金额:</td><td style="text-align:right;" class="total-line">¥${data.herbTotal}</td></tr>
+</table>
+<hr class="divider">
+<div class="footer">${data.footerText.replace(/\n/g, '<br>')}</div>
+<script>window.onload=function(){window.print();}<\/script>
+</body></html>`
+}
+
+const printHerbReceipt = (orderNo) => {
+  const printWindow = window.open('', '_blank', 'width=320,height=600')
+  if (!printWindow) {
+    ElMessage.warning('浏览器拦截了处方笺打印窗口，请允许弹窗后重试')
+    return
+  }
+  const data = buildHerbReceiptData(orderNo)
+  const html = generateHerbReceiptHtml(data, receiptPaperWidth.value)
   printWindow.document.write(html)
   printWindow.document.close()
 }
@@ -940,8 +1757,9 @@ const formatDateTime = (dateStr) => {
 // 解析挂单商品名称列表
 const parseItemNames = (itemsJson) => {
   try {
-    const items = JSON.parse(itemsJson || '[]')
-    return items.map(item => item.genericName || item.tradeName).join('、')
+    const parsed = JSON.parse(itemsJson || '[]')
+    const items = Array.isArray(parsed) ? parsed : (parsed.items || [])
+    return items.map((item) => item.genericName || item.tradeName).join('、')
   } catch {
     return '-'
   }
@@ -955,33 +1773,76 @@ const handleSuspendedSelect = (row) => {
 // 结算
 const handleCheckout = async () => {
   try {
+    // 检查实名登记
+    const rnDrugs = cartItems.value.filter(item => item.requireRealName)
+    if (rnDrugs.length > 0) {
+      realNameDrugs.value = rnDrugs
+      Object.assign(realNameForm, { name: '', idCard: '', age: '', gender: '', phone: '', address: '' })
+      realNameDialogVisible.value = true
+      const confirmed = await new Promise(resolve => { pendingCheckoutResolve = resolve })
+      if (!confirmed) return
+    }
+
     const orderData = {
       saleOrder: {
         memberId: currentMember.value?.id,
+        cashierId: authStore.user?.userId,
         totalAmount: totalAmount.value,
-        discountAmount: discountAmount.value + (totalAmount.value * (1 - memberDiscount.value)),
+        discountAmount:
+          memberPriceSaving.value + wholeOrderDiscountSaving.value + discountAmount.value,
         payAmount: payAmount.value,
         payMethod: paymentMethod.value,
-        storeId: 1
+        storeId: authStore.user?.storeId || 1,
+        herbDoseCount: herbCartItems.value.length > 0 ? herbDoseCount.value : null,
+        remark:
+          rnDrugs.length > 0
+            ? '实名登记: ' + JSON.stringify(realNameForm)
+            : undefined
       },
-      details: cartItems.value.map(item => ({
-        drugId: item.id,
-        drugName: item.genericName,
-        specification: item.specification,
-        quantity: item.quantity,
-        unitPrice: item.retailPrice,
-        discount: 0,
-        amount: item.quantity * item.retailPrice
-      }))
+      details: cartItems.value.map((item) => {
+        if (item.isHerb) {
+          const ep = getEffectivePrice(item)
+          const totalGram = item.dosePerGram * herbDoseCount.value
+          return {
+            drugId: item.id,
+            drugName: item.genericName,
+            specification: item.specification,
+            quantity: totalGram,
+            unit: 'g',
+            unitPrice: ep,
+            discount: 0,
+            amount: totalGram * ep,
+            batchId: item.batchId || null,
+            batchNo: item.batchNo || null,
+            isHerb: true,
+            dosePerGram: item.dosePerGram,
+            doseCount: herbDoseCount.value
+          }
+        }
+        return {
+          drugId: item.id,
+          drugName: item.genericName,
+          specification: item.specification,
+          quantity: item.quantity,
+          unitPrice: getEffectivePrice(item),
+          discount: 0,
+          amount: item.quantity * getEffectivePrice(item),
+          batchId: item.batchId || null,
+          batchNo: item.batchNo || null
+        }
+      })
     }
 
     const res = await createSaleOrder(orderData)
     if (res.code === 200) {
       const orderNo = res.data?.orderNo || ''
       
-      // 打印小票（在重置状态前打印）
-      if (enablePrint.value) {
+      // 打印小票（始终自动打印）
+      if (normalCartItems.value.length > 0) {
         printReceipt(orderNo)
+      }
+      if (herbCartItems.value.length > 0) {
+        setTimeout(() => printHerbReceipt(orderNo), 300)
       }
       
       await ElMessageBox.alert(
@@ -996,8 +1857,9 @@ const handleCheckout = async () => {
       )
       // 重置状态
       cartItems.value = []
+      herbDoseCount.value = 1
       discountAmount.value = 0
-      paymentMethod.value = ''
+      paymentMethod.value = 'CASH'
       cashReceived.value = 0
       memberPhone.value = ''
       currentMember.value = null
@@ -1006,6 +1868,46 @@ const handleCheckout = async () => {
   } catch (error) {
     ElMessage.error('结算失败：' + error.message)
   }
+}
+
+// 从身份证号解析性别和年龄
+const parseIdCard = () => {
+  const id = realNameForm.idCard
+  if (!id || id.length !== 18) return
+  // 出生日期: 第7-14位
+  const birthYear = parseInt(id.substring(6, 10))
+  const birthMonth = parseInt(id.substring(10, 12))
+  const birthDay = parseInt(id.substring(12, 14))
+  if (birthYear > 1900 && birthYear < 2100) {
+    const now = new Date()
+    let age = now.getFullYear() - birthYear
+    if (now.getMonth() + 1 < birthMonth || (now.getMonth() + 1 === birthMonth && now.getDate() < birthDay)) {
+      age--
+    }
+    realNameForm.age = age + '岁'
+  }
+  // 性别: 第17位，奇数=男，偶数=女
+  const genderCode = parseInt(id.charAt(16))
+  realNameForm.gender = genderCode % 2 === 1 ? '男' : '女'
+}
+
+// 提交实名登记
+const submitRealName = async () => {
+  if (!realNameFormRef.value) return
+  await realNameFormRef.value.validate((valid) => {
+    if (valid) {
+      realNameDialogVisible.value = false
+      pendingCheckoutResolve?.(true)
+      pendingCheckoutResolve = null
+    }
+  })
+}
+
+// 取消实名登记
+const cancelRealName = () => {
+  realNameDialogVisible.value = false
+  pendingCheckoutResolve?.(false)
+  pendingCheckoutResolve = null
 }
 
 const getPaymentLabel = (method) => {
@@ -1041,14 +1943,53 @@ const handleKeyDown = (e) => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('keydown', handleKeyDown)
   loadMemberLevels()
   loadSuspendedCount()
+  loadCategories()
+  loadColumnOrder()
+  loadReceiptConfig()
+
+  // 从会员页面返回时恢复会员
+  if (route.query.memberId) {
+    try {
+      const res = await getMember(route.query.memberId)
+      if (res.code === 200 && res.data) {
+        selectMember(res.data)
+      }
+    } catch (e) { /* ignore */ }
+  }
 })
 
 onUnmounted(() => {
   window.removeEventListener('keydown', handleKeyDown)
+})
+
+// 离开页面时，购物车有商品则提示挂单
+onBeforeRouteLeave((to, from, next) => {
+  if (cartItems.value.length > 0) {
+    ElMessageBox.confirm(
+      '购物车中还有商品，是否挂单保存？',
+      '提示',
+      {
+        confirmButtonText: '挂单',
+        cancelButtonText: '放弃',
+        type: 'warning',
+        distinguishCancelAndClose: true,
+      }
+    ).then(() => {
+      handleHangUp().then(() => next()).catch(() => next(false))
+    }).catch((action) => {
+      if (action === 'cancel') {
+        next()
+      } else {
+        next(false)
+      }
+    })
+  } else {
+    next()
+  }
 })
 
 // 加载会员等级列表
@@ -1058,295 +1999,616 @@ const loadMemberLevels = async () => {
     if (res.code === 200) { memberLevels.value = res.data || [] }
   } catch { /* 静默 */ }
 }
+
+// 加载药品分类 - 识别中药饮片相关分类ID（含子分类）
+const HERB_KEYWORDS = ['中药饮片', '中草药', '中药']
+const collectChildIds = (node) => {
+  const ids = [node.id]
+  if (node.children && node.children.length > 0) {
+    for (const child of node.children) {
+      ids.push(...collectChildIds(child))
+    }
+  }
+  return ids
+}
+const loadCategories = async () => {
+  try {
+    const res = await getCategoryTree()
+    if (res.code === 200) {
+      const all = res.data || []
+      // 匹配含"中药饮片/中草药/中药"关键词的顶层分类，并收集其所有子分类ID
+      const ids = []
+      for (const c of all) {
+        if (HERB_KEYWORDS.some(kw => c.name.includes(kw))) {
+          ids.push(...collectChildIds(c))
+        }
+      }
+      herbCategoryIds.value = ids.length > 0 ? ids : []
+    }
+  } catch { /* 静默 */ }
+}
 </script>
 
 <style scoped lang="scss">
 .pos-layout {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   height: calc(100vh - 120px);
-  padding: 16px;
+  padding: 20px;
+  background: linear-gradient(135deg, #e9eef5 0%, #dfe6ef 100%);
 
   .pos-left {
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 12px;
+    gap: 16px;
     min-width: 0;
   }
 
   .pos-right {
-    width: 360px;
+    width: 380px;
     flex-shrink: 0;
+  }
+
+  // === 卡片通用样式 ===
+  .cart-card,
+  .search-card,
+  .payment-card {
+    background: #ffffff;
+    border-radius: 12px;
+    border: none;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.08);
+    overflow: hidden;
+
+    :deep(.el-card__header) {
+      background: linear-gradient(135deg, #f6f8fb 0%, #eef2f7 100%);
+      border-bottom: 1px solid #e8ecf1;
+      padding: 16px 24px;
+    }
+
+    :deep(.el-card__body) {
+      background: #ffffff;
+      padding: 20px;
+    }
   }
 
   .card-header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
-    font-weight: 600;
-    font-size: 15px;
+    font-weight: 700;
+    font-size: 16px;
+    color: #1a2332;
+    gap: 12px;
+    letter-spacing: 0.5px;
   }
 
+  .herb-toggle {
+    display: inline-block;
+    padding: 4px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #606a78;
+    background: #eef1f6;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    user-select: none;
+
+    &:hover {
+      color: #409eff;
+      background: #e0edfc;
+    }
+
+    &.active {
+      color: #fff;
+      background: linear-gradient(135deg, #409eff, #2d7cd6);
+      box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+    }
+  }
+
+  // === 表格通用样式 ===
+  :deep(.el-table) {
+    border-radius: 8px;
+    overflow: hidden;
+    --el-table-border-color: #ebeef5;
+    --el-table-row-hover-bg-color: #e8f2fd;
+    --el-table-current-row-bg-color: #d4e8fa;
+    background: transparent;
+    font-size: 14px;
+  }
+
+  :deep(.el-table__header th) {
+    background: #f0f3f8 !important;
+    color: #3a4a5e;
+    font-weight: 600;
+    font-size: 14px;
+    border-bottom: 2px solid #dce0e8 !important;
+    padding: 10px 0;
+  }
+
+  :deep(.el-table__body td) {
+    padding: 8px 0;
+    font-size: 14px;
+  }
+
+  :deep(.el-table--striped .el-table__body tr.el-table__row--striped td.el-table__cell) {
+    background: #f8f9fb;
+  }
+
+  :deep(.el-table__body tr.current-row > td.el-table__cell) {
+    background-color: #d4e8fa !important;
+  }
+  :deep(.el-table__body tr.hover-row > td.el-table__cell) {
+    background-color: #e8f2fd !important;
+  }
+
+  // === 购物车卡片 ===
   .cart-card {
     flex: 1;
     min-height: 0;
-    
+
+    :deep(.el-card__body) {
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      min-height: 0;
+    }
+
     .empty-cart {
-      padding: 20px 0;
+      padding: 30px 0;
       text-align: center;
     }
 
     .amount-text {
-      color: #ff6b00;
-      font-weight: 600;
+      color: #e85d04;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .member-price-text {
+      color: #e6500a;
+      font-weight: 700;
+      font-size: 14px;
+    }
+
+    .original-price-text {
+      text-decoration: line-through;
+      color: #b0b4bf;
+      font-size: 12px;
+      margin-left: 4px;
     }
   }
 
+  // === 中药处方区 ===
+  .herb-prescription-section {
+    margin-top: 12px;
+    border: 1.5px solid #c8e6c9;
+    border-radius: 10px;
+    overflow: hidden;
+    background: #f1f8e9;
+
+    .herb-prescription-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #e8f5e9, #dcedc8);
+      border-bottom: 1px solid #c8e6c9;
+    }
+
+    .herb-prescription-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #2e7d32;
+    }
+
+    .herb-dose-control {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+
+      .herb-dose-label {
+        font-size: 14px;
+        color: #4a5568;
+        font-weight: 600;
+      }
+
+      .herb-dose-unit {
+        font-size: 14px;
+        color: #4a5568;
+      }
+
+      :deep(.el-input-number) {
+        width: 90px;
+      }
+    }
+
+    :deep(.el-table) {
+      background: transparent;
+    }
+
+    :deep(.el-table__header th) {
+      background: #e8f5e9 !important;
+      color: #2e7d32;
+    }
+
+    .herb-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 16px;
+      background: linear-gradient(135deg, #e8f5e9, #dcedc8);
+      border-top: 1px solid #c8e6c9;
+      font-size: 13px;
+      color: #4a5568;
+      gap: 16px;
+
+      .herb-total-amount {
+        font-size: 15px;
+        font-weight: 700;
+        color: #e85d04;
+      }
+    }
+  }
+
+  // === 搜索卡片 ===
   .search-card {
     flex-shrink: 0;
 
-    .search-input {
-      :deep(input) {
-        ime-mode: disabled;
+    .search-row {
+      display: flex;
+      align-items: center;
+
+      .search-input {
+        flex: 1;
+
+        :deep(.el-input__wrapper) {
+          box-shadow: 0 0 0 1.5px #dce0e8 inset;
+          background: #fafbfc;
+          border-radius: 10px;
+          padding: 4px 12px;
+          font-size: 15px;
+
+          &:focus-within {
+            box-shadow: 0 0 0 2px #409eff inset, 0 0 0 4px rgba(64, 158, 255, 0.1);
+            background: #fff;
+          }
+        }
+
+        :deep(.el-input__inner) {
+          font-size: 15px;
+          height: 36px;
+        }
       }
     }
 
     .drug-list {
+      margin-top: 12px;
+
       .no-result {
         text-align: center;
-        color: #909399;
-        padding: 20px;
+        color: #8c919f;
+        padding: 24px;
+        font-size: 14px;
       }
     }
   }
 
+  // === 右侧结算面板 ===
   .payment-card {
     height: 100%;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
 
     :deep(.el-card__body) {
       flex: 1;
       display: flex;
       flex-direction: column;
-      padding: 16px;
+      padding: 20px;
+      overflow-y: auto;
+      min-height: 0;
     }
   }
 
   .section-title {
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 12px;
-    padding-left: 8px;
-    border-left: 3px solid #409eff;
+    font-size: 15px;
+    font-weight: 700;
+    color: #1a2332;
+    margin: 6px 0 12px 0;
+    padding: 4px 0 4px 12px;
+    border-left: 4px solid #409eff;
+    letter-spacing: 0.5px;
   }
 
+  // === 会员信息区 ===
   .member-section {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
     position: relative;
+
+    :deep(.el-input__wrapper) {
+      font-size: 14px;
+    }
+
+    :deep(.el-input__inner) {
+      font-size: 14px;
+    }
 
     .member-search-list {
       position: absolute;
-      top: 34px;
+      top: 36px;
       left: 0;
       right: 0;
       z-index: 100;
       background: #fff;
-      border: 1px solid #dcdfe6;
-      border-radius: 4px;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
-      max-height: 240px;
+      border: 1px solid #dce0e8;
+      border-radius: 10px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      max-height: 260px;
       overflow-y: auto;
 
       .member-search-item {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
+        gap: 12px;
+        padding: 12px 16px;
         cursor: pointer;
-        border-bottom: 1px solid #f0f0f0;
-        font-size: 13px;
+        border-bottom: 1px solid #f2f4f7;
+        font-size: 14px;
+        transition: background 0.15s;
 
         &:last-child { border-bottom: none; }
-        &:hover { background: #ecf5ff; }
+        &:hover, &.active { background: #e6f0fa; }
 
-        .name { font-weight: 600; color: #303133; min-width: 60px; }
-        .phone { color: #909399; }
-        .points-tag { margin-left: auto; color: #ff6b00; font-size: 12px; }
+        .name { font-weight: 600; color: #1a2332; min-width: 60px; }
+        .phone { color: #8c919f; }
+        .points-tag { margin-left: auto; color: #e85d04; font-size: 13px; font-weight: 500; }
       }
     }
 
     .member-info {
-      margin-top: 12px;
-      padding: 12px;
-      background-color: #f0f9ff;
-      border-radius: 6px;
+      margin-top: 14px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, #e8f4fd 0%, #dbeefa 100%);
+      border: 1px solid #c4ddf3;
+      border-radius: 10px;
+      cursor: context-menu;
 
       .member-row {
         display: flex;
         align-items: center;
         gap: 8px;
-        margin-bottom: 6px;
+        margin-bottom: 8px;
 
-        &:last-child {
-          margin-bottom: 0;
-        }
+        &:last-child { margin-bottom: 0; }
 
         .label {
-          color: #666;
-          font-size: 13px;
+          color: #5a6577;
+          font-size: 14px;
         }
 
         .value {
-          font-weight: 500;
+          font-weight: 600;
+          font-size: 14px;
 
           &.points {
-            color: #ff6b00;
+            color: #e85d04;
+            font-size: 16px;
           }
+        }
+      }
+    }
+
+    .member-context-menu {
+      position: fixed;
+      z-index: 9999;
+      background: #fff;
+      border: 1px solid #dcdfe6;
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      padding: 6px 0;
+      min-width: 130px;
+
+      .context-menu-item {
+        padding: 10px 18px;
+        font-size: 14px;
+        color: #303133;
+        cursor: pointer;
+        white-space: nowrap;
+
+        &:hover {
+          background: #ecf5ff;
+          color: #409eff;
         }
       }
     }
   }
 
+  // === 结算明细区 ===
   .settlement-section {
-    margin-bottom: 20px;
-    padding: 12px;
-    background: #fafafa;
-    border-radius: 6px;
+    margin-bottom: 18px;
+    padding: 16px;
+    background: linear-gradient(135deg, #f4f6fa 0%, #edf1f7 100%);
+    border: 1px solid #e0e5ed;
+    border-radius: 12px;
 
     .summary-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 8px 0;
-      font-size: 14px;
+      padding: 9px 0;
+      font-size: 15px;
 
       .label {
-        color: #666;
+        color: #4a5568;
+        font-size: 15px;
       }
 
       .value {
-        font-weight: 500;
+        font-weight: 600;
+        font-size: 15px;
 
         &.amount {
-          color: #333;
-          font-size: 16px;
+          color: #1a2332;
+          font-size: 18px;
+          font-weight: 700;
         }
       }
 
       &.discount {
         .value {
-          color: #67c23a;
+          color: #52c41a;
         }
       }
 
       &.total {
-        border-top: 1px dashed #ddd;
-        margin-top: 8px;
-        padding-top: 12px;
+        border-top: 2px dashed #cdd3dc;
+        margin-top: 10px;
+        padding-top: 14px;
 
         .label {
-          font-size: 16px;
-          font-weight: 600;
-          color: #333;
+          font-size: 17px;
+          font-weight: 700;
+          color: #1a2332;
         }
 
         .pay-amount {
-          font-size: 28px;
-          color: #ff6b00;
-          font-weight: 700;
+          font-size: 32px;
+          color: #e85d04;
+          font-weight: 800;
+          letter-spacing: -0.5px;
         }
       }
     }
   }
 
+  // === 支付方式 ===
   .payment-methods {
-    margin-bottom: 20px;
+    margin-bottom: 18px;
 
     :deep(.el-radio-group) {
       display: flex;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 10px;
 
       .el-radio-button {
         flex: 1;
-        min-width: calc(50% - 4px);
+        min-width: calc(50% - 5px);
 
         .el-radio-button__inner {
           width: 100%;
           display: flex;
           align-items: center;
           justify-content: center;
-          gap: 6px;
-          padding: 12px 8px;
+          gap: 8px;
+          padding: 14px 10px;
+          border-radius: 10px !important;
+          border: 1.5px solid #dce0e8 !important;
+          background: #f7f8fa;
+          font-size: 15px;
+          font-weight: 500;
+          transition: all 0.25s ease;
+        }
+
+        &.is-active .el-radio-button__inner {
+          background: linear-gradient(135deg, #409eff, #2d7cd6);
+          color: #fff;
+          border-color: #409eff !important;
+          box-shadow: 0 4px 12px rgba(64, 158, 255, 0.25);
         }
       }
     }
   }
 
+  // === 现金找零区 ===
   .cash-change-section {
-    background: #f5f7fa;
-    padding: 12px;
-    border-radius: 6px;
-    margin-bottom: 16px;
+    background: linear-gradient(135deg, #f4f8f2 0%, #eaf1e6 100%);
+    border: 1px solid #d4e2cf;
+    padding: 14px 16px;
+    border-radius: 12px;
+    margin-bottom: 18px;
 
     .summary-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 8px;
+      margin-bottom: 10px;
 
-      &:last-child {
-        margin-bottom: 0;
-      }
+      &:last-child { margin-bottom: 0; }
 
       .label {
-        color: #606266;
-        font-size: 14px;
+        color: #4a5568;
+        font-size: 15px;
       }
 
       .change-amount {
-        color: #67c23a;
-        font-weight: 600;
-        font-size: 16px;
+        color: #52c41a;
+        font-weight: 700;
+        font-size: 18px;
       }
 
       .change-error {
-        color: #f56c6c;
-        font-weight: 600;
-        font-size: 16px;
+        color: #f5222d;
+        font-weight: 700;
+        font-size: 18px;
       }
     }
   }
 
+  // === 操作按钮 ===
   .action-buttons {
     display: flex;
     gap: 12px;
-    margin-bottom: 16px;
+    margin-bottom: 18px;
 
     .checkout-btn {
       flex: 1;
-      height: 48px;
-      font-size: 16px;
+      height: 52px;
+      font-size: 17px;
+      font-weight: 600;
+      background: linear-gradient(135deg, #409eff 0%, #2d7cd6 100%);
+      border: none;
+      border-radius: 12px;
+      box-shadow: 0 4px 14px rgba(64, 158, 255, 0.3);
+      transition: all 0.25s ease;
+      letter-spacing: 1px;
+
+      &:hover:not(:disabled) {
+        box-shadow: 0 6px 20px rgba(64, 158, 255, 0.4);
+        transform: translateY(-1px);
+      }
     }
 
     .el-button:not(.checkout-btn) {
-      min-width: 70px;
-      height: 48px;
+      min-width: 76px;
+      height: 52px;
+      border-radius: 12px;
+      border: 1.5px solid #dce0e8;
+      font-size: 15px;
+      font-weight: 500;
     }
   }
 
+  // === 快捷键提示 ===
   .shortcut-tips {
     display: flex;
     justify-content: center;
-    gap: 16px;
-    font-size: 12px;
-    color: #909399;
+    gap: 12px;
+    font-size: 13px;
+    color: #8c919f;
     margin-top: auto;
-    padding-top: 12px;
-    border-top: 1px solid #eee;
+    padding: 10px 14px;
+    background: #f4f6fa;
+    border-radius: 8px;
+
+    span {
+      background: #e4e8ee;
+      padding: 3px 10px;
+      border-radius: 6px;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
   }
 
   .suspend-badge {
@@ -1358,8 +2620,8 @@ const loadMemberLevels = async () => {
 }
 
 .config-tip {
-  font-size: 12px;
-  color: #909399;
+  font-size: 13px;
+  color: #8c919f;
 }
 
 :deep(.el-table__row) {
@@ -1367,6 +2629,67 @@ const loadMemberLevels = async () => {
 }
 
 :deep(.el-input-number--small) {
-  width: 90px;
+  width: 100px;
+}
+
+.column-settings {
+  .column-settings-title {
+    font-weight: 700;
+    margin-bottom: 10px;
+    font-size: 14px;
+    color: #1a2332;
+  }
+  .column-settings-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    font-size: 14px;
+    color: #4a5568;
+    .column-settings-btns {
+      display: flex;
+      gap: 0;
+    }
+  }
+}
+</style>
+
+<style lang="scss">
+.pos-context-menu {
+  position: fixed;
+  z-index: 9999;
+  background: #fff;
+  border: 1px solid #e0e5ed;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.15);
+  padding: 6px 0;
+  min-width: 140px;
+
+  .context-menu-item {
+    padding: 10px 20px;
+    font-size: 14px;
+    color: #303133;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+
+    &:hover {
+      background: #ecf5ff;
+      color: #409eff;
+    }
+
+    &.context-menu-info {
+      color: #e85d04;
+      font-weight: 700;
+      cursor: default;
+      border-bottom: 1px solid #f0f2f5;
+      font-size: 15px;
+
+      &:hover {
+        background: transparent;
+        color: #e85d04;
+      }
+    }
+  }
 }
 </style>

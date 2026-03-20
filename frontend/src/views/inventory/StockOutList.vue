@@ -29,7 +29,7 @@
         <el-button type="primary" @click="handleAdd"><el-icon><Plus /></el-icon>新增出库单</el-button>
       </div>
 
-      <el-table v-loading="loading" :data="tableData" stripe border style="width: 100%">
+      <el-table ref="tableRef" v-loading="loading" :data="tableData" stripe border style="width: 100%" highlight-current-row>
         <el-table-column prop="orderNo" label="出库单号" width="180" />
         <el-table-column label="出库类型" width="120" align="center">
           <template #default="{ row }">
@@ -189,6 +189,7 @@ import {
   approveStockOut,
   completeStockOut
 } from '@/api/inventory'
+import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
 
 const typeTagMap = { '销售出库': 'primary', '调拨出库': 'info', '报损出库': 'danger', '其他出库': '' }
 const statusTagMap = { '待审核': 'warning', '已审核': 'primary', '已出库': 'success' }
@@ -196,6 +197,7 @@ const statusTagMap = { '待审核': 'warning', '已审核': 'primary', '已出�
 const searchForm = reactive({ type: '', status: '' })
 const loading = ref(false)
 const tableData = ref([])
+const { tableRef, selectFirstRow } = useTableKeyboardNav(tableData)
 const pagination = reactive({ current: 1, size: 10, total: 0 })
 
 const detailVisible = ref(false)
@@ -230,6 +232,7 @@ const fetchData = async () => {
     if (res.code === 200) {
       tableData.value = res.data.records
       pagination.total = res.data.total
+      selectFirstRow()
     }
   } catch {
     ElMessage.error('获取数据失败')
