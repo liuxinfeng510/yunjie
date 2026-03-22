@@ -437,7 +437,7 @@ const router = createRouter({
 })
 
 router.beforeEach((to, from, next) => {
-  document.title = `${to.meta.title || 'YF药房'} - YF药房管理系统`
+  document.title = `${to.meta.title || '云界智慧药房'} - 云界智慧药房系统`
   const token = localStorage.getItem('token')
   const userStr = localStorage.getItem('user')
   

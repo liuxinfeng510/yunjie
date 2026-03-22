@@ -68,6 +68,13 @@
           <template #default="{ row }">¥{{ row.retailPrice?.toFixed(2) }}</template>
         </el-table-column>
         <el-table-column prop="stock" label="库存" width="80" />
+        <el-table-column label="销售可调价" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag :type="row.allowPriceAdjust ? 'success' : 'info'" size="small">
+              {{ row.allowPriceAdjust ? '开启' : '关闭' }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
             <el-tag :type="row.status === '启用' ? 'success' : 'info'">
@@ -265,6 +272,11 @@
             <el-col :span="6">
               <el-form-item label="重点养护">
                 <el-switch v-model="formData.isKeyMaintenance" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="销售可调价">
+                <el-switch v-model="formData.allowPriceAdjust" />
               </el-form-item>
             </el-col>
           </el-row>

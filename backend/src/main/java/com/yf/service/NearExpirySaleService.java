@@ -63,7 +63,8 @@ public class NearExpirySaleService {
             record.setExpireDate(batch.getExpireDate());
             record.setRemainingDays((int) ChronoUnit.DAYS.between(LocalDate.now(), batch.getExpireDate()));
             record.setUnit(drug.getUnit());
-            record.setStatus("pending");
+            record.setSaleMeasure("accelerate");
+            record.setStatus("processing");
 
             // 查库存数量（同一药品可能多条库存记录，汇总）
             LambdaQueryWrapper<Inventory> invWrapper = new LambdaQueryWrapper<>();

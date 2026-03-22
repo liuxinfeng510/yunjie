@@ -182,6 +182,7 @@
           </el-breadcrumb>
         </div>
         <div style="display: flex; align-items: center; gap: 16px;">
+          <span v-if="user?.tenantName" style="color: #606266; font-size: 13px; border-right: 1px solid #dcdfe6; padding-right: 16px;">{{ user.tenantName }}</span>
           <span>{{ user?.realName || user?.username }}</span>
           <el-dropdown @command="handleCommand">
             <el-avatar :size="32" style="cursor:pointer;">

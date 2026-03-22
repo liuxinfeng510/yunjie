@@ -248,26 +248,38 @@ public class BatchImportService {
             }
         }
 
+        // 预加载已有手机号用于去重
+        Set<String> existingPhones = new HashSet<>();
+        if (request.isSkipDuplicate()) {
+            LambdaQueryWrapper<Member> phoneQuery = new LambdaQueryWrapper<>();
+            phoneQuery.select(Member::getPhone).isNotNull(Member::getPhone);
+            List<Member> existList = memberMapper.selectList(phoneQuery);
+            for (Member m : existList) {
+                if (StringUtils.hasText(m.getPhone())) {
+                    existingPhones.add(m.getPhone());
+                }
+            }
+        }
+
         ImportExecuteResponse response = new ImportExecuteResponse();
         AtomicInteger total = new AtomicInteger(0);
         AtomicInteger success = new AtomicInteger(0);
         AtomicInteger fail = new AtomicInteger(0);
         AtomicInteger skip = new AtomicInteger(0);
         List<String> errors = Collections.synchronizedList(new ArrayList<>());
+        List<Member> batch = new ArrayList<>(500);
 
         EasyExcel.read(filePath, new ReadListener<Map<Integer, String>>() {
             @Override
             public void invoke(Map<Integer, String> row, AnalysisContext context) {
-                int rowNum = total.incrementAndGet() + 1; // +1 因为表头占第1行
+                int rowNum = total.incrementAndGet() + 1;
                 try {
-                    // 将行数据按映射转为字段值Map
                     Map<String, String> fieldValues = new HashMap<>();
                     for (Map.Entry<Integer, String> entry : indexFieldMap.entrySet()) {
                         String val = row.get(entry.getKey());
                         fieldValues.put(entry.getValue(), val != null ? val.trim() : "");
                     }
 
-                    // 必填校验
                     String name = fieldValues.getOrDefault("name", "");
                     String phone = fieldValues.getOrDefault("phone", "");
                     if (!StringUtils.hasText(name) && !StringUtils.hasText(phone)) {
@@ -275,47 +287,37 @@ public class BatchImportService {
                         return;
                     }
 
-                    // 重复检查
+                    // 内存去重
                     if (request.isSkipDuplicate() && StringUtils.hasText(phone)) {
-                        LambdaQueryWrapper<Member> w = new LambdaQueryWrapper<>();
-                        w.eq(Member::getPhone, phone);
-                        if (memberMapper.selectCount(w) > 0) {
+                        if (existingPhones.contains(phone)) {
                             skip.incrementAndGet();
                             return;
                         }
+                        existingPhones.add(phone);
                     }
 
-                    // 构建 Member 对象
                     Member member = new Member();
                     member.setMemberNo("M" + DateUtil.format(LocalDateTime.now(), "yyyyMMddHHmmss") + total.get());
                     member.setName(name);
                     member.setPhone(phone);
 
-                    // 性别转换
                     String gender = fieldValues.getOrDefault("gender", "");
                     if (StringUtils.hasText(gender)) {
-                        if ("男".equals(gender)) {
-                            member.setGender("MALE");
-                        } else if ("女".equals(gender)) {
-                            member.setGender("FEMALE");
-                        } else {
-                            member.setGender(gender);
-                        }
+                        if ("男".equals(gender)) member.setGender("MALE");
+                        else if ("女".equals(gender)) member.setGender("FEMALE");
+                        else member.setGender(gender);
                     }
 
-                    // 生日
                     String birthday = fieldValues.getOrDefault("birthday", "");
                     if (StringUtils.hasText(birthday)) {
                         member.setBirthday(parseDate(birthday));
                     }
 
-                    // 身份证
                     String idCard = fieldValues.getOrDefault("idCard", "");
                     if (StringUtils.hasText(idCard)) {
                         member.setIdCard(idCard);
                     }
 
-                    // 积分
                     String pointsStr = fieldValues.getOrDefault("points", "");
                     if (StringUtils.hasText(pointsStr)) {
                         try {
@@ -327,21 +329,20 @@ public class BatchImportService {
                         member.setPoints(0);
                     }
 
-                    // 过敏信息
                     String allergyInfo = fieldValues.getOrDefault("allergyInfo", "");
-                    if (StringUtils.hasText(allergyInfo)) {
-                        member.setAllergyInfo(allergyInfo);
-                    }
+                    if (StringUtils.hasText(allergyInfo)) member.setAllergyInfo(allergyInfo);
 
-                    // 慢性病
                     String chronicDisease = fieldValues.getOrDefault("chronicDisease", "");
-                    if (StringUtils.hasText(chronicDisease)) {
-                        member.setChronicDisease(chronicDisease);
-                    }
+                    if (StringUtils.hasText(chronicDisease)) member.setChronicDisease(chronicDisease);
 
                     member.setStatus("正常");
-                    memberMapper.insert(member);
+                    batch.add(member);
                     success.incrementAndGet();
+
+                    // 每500条批量插入一次
+                    if (batch.size() >= 500) {
+                        flushMemberBatch(batch, fail, success, errors);
+                    }
 
                 } catch (Exception e) {
                     fail.incrementAndGet();
@@ -351,6 +352,9 @@ public class BatchImportService {
 
             @Override
             public void doAfterAllAnalysed(AnalysisContext context) {
+                if (!batch.isEmpty()) {
+                    flushMemberBatch(batch, fail, success, errors);
+                }
             }
         }).headRowNumber(1).sheet().doRead();
 
@@ -360,7 +364,6 @@ public class BatchImportService {
         response.setSkip(skip.get());
         response.setErrors(errors);
 
-        // 清理临时文件
         cleanupFile(request.getFileToken());
         return response;
     }
@@ -576,7 +579,7 @@ public class BatchImportService {
 
                     // 每 BATCH_SIZE 条批量插入一次
                     if (batchList.size() >= BATCH_SIZE) {
-                        flushBatch(batchList, fail, success, errors);
+                        flushDrugBatch(batchList, fail, success, errors);
                     }
 
                 } catch (Exception e) {
@@ -589,7 +592,7 @@ public class BatchImportService {
             public void doAfterAllAnalysed(AnalysisContext context) {
                 // 插入剩余数据
                 if (!batchList.isEmpty()) {
-                    flushBatch(batchList, fail, success, errors);
+                    flushDrugBatch(batchList, fail, success, errors);
                 }
             }
         }).headRowNumber(1).sheet().doRead();
@@ -604,7 +607,23 @@ public class BatchImportService {
         return response;
     }
 
-    private void flushBatch(List<Drug> batchList, AtomicInteger fail, AtomicInteger success, List<String> errors) {
+    private void flushMemberBatch(List<Member> batch, AtomicInteger fail, AtomicInteger success, List<String> errors) {
+        for (Member member : batch) {
+            try {
+                memberMapper.insert(member);
+            } catch (Exception e) {
+                fail.incrementAndGet();
+                success.decrementAndGet();
+                String name = member.getName() != null ? member.getName() : "未知";
+                String phone = member.getPhone() != null ? member.getPhone() : "";
+                log.error("插入会员失败 [{}|{}]: {}", name, phone, e.getMessage());
+                errors.add("插入失败[" + name + "|" + phone + "]: " + e.getMessage());
+            }
+        }
+        batch.clear();
+    }
+
+    private void flushDrugBatch(List<Drug> batchList, AtomicInteger fail, AtomicInteger success, List<String> errors) {
         for (Drug drug : batchList) {
             try {
                 drugMapper.insert(drug);

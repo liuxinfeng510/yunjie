@@ -36,7 +36,7 @@ export function parseMemberImport(formData) {
   })
 }
 export function executeMemberImport(data) {
-  return request.post('/member/import/execute', data, { timeout: 120000 })
+  return request.post('/member/import/execute', data, { timeout: 600000 })
 }
 
 // 会员等级

@@ -52,6 +52,10 @@ public class DrugService {
     }
 
     public Page<Drug> page(Page<Drug> page, String name, Long categoryId, List<Long> categoryIds, String otcType, String status) {
+        return page(page, name, categoryId, categoryIds, otcType, status, true);
+    }
+
+    public Page<Drug> page(Page<Drug> page, String name, Long categoryId, List<Long> categoryIds, String otcType, String status, boolean showZeroStock) {
         LambdaQueryWrapper<Drug> wrapper = new LambdaQueryWrapper<>();
 
         // 多字段模糊查询（含批准文号、别名）
@@ -85,6 +89,12 @@ public class DrugService {
             wrapper.eq(Drug::getStatus, status);
         }
 
+        // 过滤零库存：只显示有库存的药品
+        if (!showZeroStock) {
+            Long tenantId = TenantContext.getTenantId();
+            wrapper.exists("SELECT 1 FROM inventory inv WHERE inv.drug_id = drug.id AND inv.tenant_id = " + tenantId + " AND inv.quantity > 0 AND inv.deleted = 0");
+        }
+
         // 按创建时间降序
         wrapper.orderByDesc(Drug::getCreatedAt);
 
@@ -99,6 +109,26 @@ public class DrugService {
      */
     public Drug getById(Long id) {
         return drugMapper.selectById(id);
+    }
+
+    /**
+     * 判断药品是否为中药饮片（兼容 isHerb 未设置的历史数据）
+     */
+    public boolean isHerbDrug(Drug drug) {
+        if (drug == null) return false;
+        if (Boolean.TRUE.equals(drug.getIsHerb())) return true;
+        if (drug.getHerbType() != null && !drug.getHerbType().isEmpty()) return true;
+        // 通过分类判断
+        if (drug.getCategoryId() != null) {
+            LambdaQueryWrapper<DrugCategory> w = new LambdaQueryWrapper<>();
+            w.eq(DrugCategory::getName, "中药饮片")
+             .eq(DrugCategory::getParentId, 0L)
+             .eq(DrugCategory::getTenantId, 0L)
+             .eq(DrugCategory::getIsSystem, true);
+            DrugCategory herbRoot = drugCategoryMapper.selectOne(w);
+            if (herbRoot != null && herbRoot.getId().equals(drug.getCategoryId())) return true;
+        }
+        return false;
     }
 
     /**
@@ -218,8 +248,8 @@ public class DrugService {
      * @param showZeroStock 是否显示零库存药品
      */
     public Page<Map<String, Object>> pageWithStock(Page<Drug> page, String name, Long categoryId, List<Long> categoryIds, String otcType, String status, boolean showZeroStock) {
-        // 先查询药品
-        Page<Drug> drugPage = this.page(page, name, categoryId, categoryIds, otcType, status);
+        // 先查询药品（在SQL层面过滤零库存）
+        Page<Drug> drugPage = this.page(page, name, categoryId, categoryIds, otcType, status, showZeroStock);
         
         // 获取药品ID列表
         List<Long> drugIds = drugPage.getRecords().stream()
@@ -398,16 +428,6 @@ public class DrugService {
                     return map;
                 })
                 .collect(Collectors.toList());
-        
-        // 过滤零库存
-        if (!showZeroStock) {
-            records = records.stream()
-                    .filter(m -> {
-                        BigDecimal s = (BigDecimal) m.get("stock");
-                        return s != null && s.compareTo(BigDecimal.ZERO) > 0;
-                    })
-                    .collect(Collectors.toList());
-        }
         
         Page<Map<String, Object>> resultPage = new Page<>(drugPage.getCurrent(), drugPage.getSize(), drugPage.getTotal());
         resultPage.setRecords(records);

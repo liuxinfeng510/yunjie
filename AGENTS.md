@@ -127,6 +127,35 @@ ssh root@62.234.37.40 "systemctl restart yf-pharmacy"
 
 ## 版本记录
 
+### v1.7.1 (2026-03-22)
+- **POS搜索优化**: 零库存过滤从内存层面移至SQL层面（EXISTS子查询），修复拼音搜索结果为空的问题
+- **POS中药调价**: 中药饮片处方区域单价支持可编辑调价（根据allowPriceAdjust字段控制）
+- **POS右键菜单**: 中药处方购物车增加右键功能（查看进价、跳转药品列表）；修复进价字段名(purchasePrice)；进价显示原始值不四舍五入；零售价/单价输入精度从2位改为4位
+- **POS按钮右键**: 结算/挂单按钮右键事件改为外层div绑定，解决disabled状态下右键不响应问题；日终对账右键限定在结算明细区域
+- **拼音码批量补全**: 新增供应商rebuildPinyin接口，批量补全供应商(215条)、药品(17210条)、会员(21381条)拼音码
+- **会员批量导入优化**: 预加载手机号去重(O(1)内存查找替代逐条DB查询)；批量插入(每500条flush)；前端超时从120s增至600s；nginx proxy_read_timeout从120s增至600s
+- **药品列表增强**: 新增"销售可调价"列显示；中药饮片编辑表单增加"销售可调价"开关
+- **界面优化**: 右上角显示租户名称；浏览器标题改为"云界智慧药房系统"
+- **入库审批修复**: StockInController.approve()从SecurityContext获取userId，修复500错误
+- **近效期催销**: 默认saleMeasure="accelerate"、status="processing"；A4竖版打印+日期筛选
+- **验收记录**: 入库完成自动生成验收记录；增加供应商列和日期筛选+打印功能
+- **中药记录自动生成**: 通过categoryId=23识别中药饮片，入库时自动生成装斗/清斗记录
+
+#### v1.7.1 关键文件变更
+| 文件 | 变更说明 |
+|------|----------|
+| `views/sale/POS.vue` | 中药调价、右键菜单修复、零售价精度、按钮右键外层绑定 |
+| `views/drug/DrugList.vue` | 新增销售可调价列和中药编辑表单开关 |
+| `views/Layout.vue` | 右上角显示租户名称 |
+| `router/index.js` | 浏览器标题改为云界智慧药房系统 |
+| `api/member.js` | 批量导入超时增至600s |
+| `service/DrugService.java` | SQL层面零库存过滤(EXISTS)、page方法增加showZeroStock参数 |
+| `service/BatchImportService.java` | 会员批量导入优化(预加载去重+批量插入)、flushMemberBatch/flushDrugBatch |
+| `service/SupplierService.java` | 新增rebuildAllPinyin批量补全拼音 |
+| `controller/SupplierController.java` | 新增rebuild-pinyin接口 |
+| `service/StockInService.java` | 自动生成验收记录和中药记录 |
+| `controller/StockInController.java` | 审批接口从SecurityContext获取userId |
+
 ### v1.6.0 (2026-03-20)
 - **POS收银 - 中药处方模式**: 中药饮片按克计价，支持副数设置，购物车分区显示（普通药品+中药处方），独立处方笺自动打印
 - **对账管理**: 日结/交接班对账功能 (ReconciliationController)

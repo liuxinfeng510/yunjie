@@ -10,6 +10,7 @@ import com.yf.service.StockInService;
 import com.yf.vo.ApiResponse;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -78,8 +79,8 @@ public class StockInController {
      * 审核入库单
      */
     @PutMapping("/{id}/approve")
-    public ApiResponse<Void> approve(@PathVariable Long id, @RequestBody Map<String, Long> request) {
-        Long approvedBy = request.get("approvedBy");
+    public ApiResponse<Void> approve(@PathVariable Long id) {
+        Long approvedBy = (Long) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         stockInService.approve(id, approvedBy);
         return ApiResponse.success();
     }

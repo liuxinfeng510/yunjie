@@ -107,6 +107,15 @@ public class SupplierController {
     }
 
     /**
+     * 批量补全拼音码
+     */
+    @PostMapping("/rebuild-pinyin")
+    public ApiResponse rebuildPinyin() {
+        int count = supplierService.rebuildAllPinyin();
+        return ApiResponse.success("已补全 " + count + " 条供应商拼音码");
+    }
+
+    /**
      * 删除供应商
      *
      * @param id 供应商ID

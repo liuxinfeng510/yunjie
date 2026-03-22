@@ -177,7 +177,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { Refresh, Printer } from '@element-plus/icons-vue'
 import {
-  generateNearExpirySale, getNearExpirySalePage,
+  generateNearExpirySale, getNearExpirySalePage, getNearExpirySaleList,
   updateNearExpirySaleMeasure, completeNearExpirySale
 } from '@/api/gsp'
 import { getConfigValue, setConfigValue } from '@/api/system'
@@ -346,16 +346,24 @@ const handleDetail = (row) => {
   detailDialogVisible.value = true
 }
 
-const handlePrint = () => {
+const handlePrint = async () => {
+  // 加载全部数据用于打印
+  let allData = tableData.value
+  try {
+    const res = await getNearExpirySaleList({ month: queryForm.month || currentMonth, status: queryForm.status || undefined })
+    allData = res.data || allData
+  } catch {}
+
   const printWindow = window.open('', '_blank')
-  const rows = tableData.value.map(row => `
+  const rows = allData.map((row, idx) => `
     <tr>
+      <td style="text-align:center">${idx + 1}</td>
       <td>${row.drugName || ''}</td>
       <td>${row.specification || ''}</td>
       <td>${row.manufacturer || ''}</td>
       <td>${row.batchNo || ''}</td>
-      <td>${row.expireDate || ''}</td>
-      <td style="text-align:center">${row.remainingDays ?? ''}天</td>
+      <td style="text-align:center">${row.expireDate || ''}</td>
+      <td style="text-align:center">${row.remainingDays ?? ''}</td>
       <td style="text-align:center">${row.stockQuantity ?? ''}</td>
       <td>${row.unit || ''}</td>
       <td>${measureMap[row.saleMeasure] || row.saleMeasure || ''}</td>
@@ -363,25 +371,37 @@ const handlePrint = () => {
     </tr>`).join('')
   printWindow.document.write(`<!DOCTYPE html><html><head><title>近效期药品催销表</title>
 <style>
-  body { font-family: SimSun, serif; margin: 20px; }
-  h2 { text-align: center; margin-bottom: 5px; }
-  .sub { text-align: center; color: #666; margin-bottom: 15px; font-size: 14px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { border: 1px solid #333; padding: 5px 8px; }
-  th { background: #f0f0f0; font-weight: bold; }
-  @media print { @page { size: landscape; margin: 10mm; } }
+  @page { size: A4 portrait; margin: 10mm 8mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: SimSun, serif; font-size: 10px; }
+  h2 { text-align: center; font-size: 16px; margin: 4px 0 2px; }
+  .sub { text-align: center; color: #333; font-size: 10px; margin-bottom: 4px; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+  th, td { border: 1px solid #000; padding: 2px 3px; word-break: break-all; line-height: 1.3; }
+  th { background: #e8e8e8; font-weight: bold; font-size: 10px; }
+  td { font-size: 9px; }
+  .footer { display: flex; justify-content: space-between; font-size: 10px; margin-top: 6px; padding: 0 4px; }
 </style></head><body>
 <h2>近效期药品催销表</h2>
-<div class="sub">月份：${queryForm.month || currentMonth}</div>
+<div class="sub">月份：${queryForm.month || currentMonth}　　　药房：云峰智慧药房</div>
 <table>
+  <colgroup>
+    <col style="width:4%"><col style="width:13%"><col style="width:8%"><col style="width:14%">
+    <col style="width:10%"><col style="width:9%"><col style="width:5%"><col style="width:5%">
+    <col style="width:4%"><col style="width:10%"><col style="width:6%">
+  </colgroup>
   <thead><tr>
-    <th>药品名称</th><th>规格</th><th>生产企业</th><th>批号</th>
-    <th>有效期至</th><th>剩余天数</th><th>库存</th><th>单位</th>
+    <th>序号</th><th>药品名称</th><th>规格</th><th>生产企业</th><th>批号</th>
+    <th>有效期至</th><th>剩余</th><th>库存</th><th>单位</th>
     <th>催销措施</th><th>状态</th>
   </tr></thead>
-  <tbody>${rows || '<tr><td colspan="10" style="text-align:center">暂无数据</td></tr>'}</tbody>
+  <tbody>${rows || '<tr><td colspan="11" style="text-align:center">暂无数据</td></tr>'}</tbody>
 </table>
-<div class="sub" style="margin-top:20px">打印日期：${new Date().toLocaleDateString('zh-CN')}</div>
+<div class="footer">
+  <span>制表人：____________</span>
+  <span>审核人：____________</span>
+  <span>打印日期：${new Date().toLocaleDateString('zh-CN')}</span>
+</div>
 </body></html>`)
   printWindow.document.close()
   printWindow.onload = () => { printWindow.print() }

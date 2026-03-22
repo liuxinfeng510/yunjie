@@ -122,6 +122,26 @@ public class SupplierService {
     }
 
     /**
+     * 批量补全所有供应商的拼音码
+     */
+    public int rebuildAllPinyin() {
+        List<Supplier> all = supplierMapper.selectList(
+                new LambdaQueryWrapper<Supplier>().isNull(Supplier::getPinyinShort));
+        int count = 0;
+        for (Supplier s : all) {
+            if (StringUtils.hasText(s.getName())) {
+                Supplier update = new Supplier();
+                update.setId(s.getId());
+                update.setPinyin(PinyinUtil.getPinyin(s.getName(), ""));
+                update.setPinyinShort(PinyinUtil.getFirstLetter(s.getName(), ""));
+                supplierMapper.updateById(update);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    /**
      * 自动填充拼音
      */
     private void fillPinyin(Supplier supplier) {

@@ -5,6 +5,7 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.Inventory;
 import com.yf.entity.Drug;
+import com.yf.entity.DrugAcceptance;
 import com.yf.entity.HerbCleanLog;
 import com.yf.entity.HerbFillLog;
 import com.yf.entity.StockIn;
@@ -45,6 +46,7 @@ public class StockInService {
     private final HerbFillLogService herbFillLogService;
     private final HerbCleanLogService herbCleanLogService;
     private final SysUserMapper sysUserMapper;
+    private final DrugAcceptanceService drugAcceptanceService;
     
     /**
      * 分页查询入库单
@@ -259,11 +261,38 @@ public class StockInService {
         // 自动生成中药饮片装斗/清斗记录
         generateHerbLogs(stockIn, details);
         
+        // 自动生成验收记录
+        generateAcceptanceRecords(stockIn, details);
+        
         stockIn.setStatus("已入库");
         stockInMapper.updateById(stockIn);
         
         // 激活追溯码 pending -> in_stock
         drugTraceCodeService.activateByStockInId(id);
+    }
+
+    /**
+     * 自动生成验收记录（每条入库明细一条验收记录）
+     */
+    private void generateAcceptanceRecords(StockIn stockIn, List<StockInDetail> details) {
+        for (StockInDetail detail : details) {
+            DrugAcceptance acceptance = new DrugAcceptance();
+            acceptance.setStockInId(stockIn.getId());
+            acceptance.setStoreId(stockIn.getStoreId());
+            acceptance.setDrugId(detail.getDrugId());
+            acceptance.setDrugName(detail.getDrugName());
+            acceptance.setBatchNo(detail.getBatchNo());
+            acceptance.setSupplierId(stockIn.getSupplierId());
+            acceptance.setSupplierName(stockIn.getSupplierName());
+            acceptance.setQuantity(detail.getQuantity());
+            acceptance.setAppearanceCheck("PASS");
+            acceptance.setPackageCheck("PASS");
+            acceptance.setLabelCheck("PASS");
+            acceptance.setExpireCheck("PASS");
+            acceptance.setOverallResult("PASS");
+            acceptance.setAcceptTime(LocalDateTime.now());
+            drugAcceptanceService.create(acceptance);
+        }
     }
 
     /**
@@ -289,7 +318,7 @@ public class StockInService {
 
         for (StockInDetail detail : details) {
             Drug drug = drugService.getById(detail.getDrugId());
-            if (drug == null || !Boolean.TRUE.equals(drug.getIsHerb())) {
+            if (drug == null || !drugService.isHerbDrug(drug)) {
                 continue;
             }
 

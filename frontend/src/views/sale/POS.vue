@@ -68,7 +68,7 @@
                   <span class="original-price-text">¥{{ row.retailPrice?.toFixed(2) }}</span>
                 </template>
                 <template v-else>
-                  <el-input-number v-if="row.allowPriceAdjust !== false" v-model="row.retailPrice" :min="0.01" :precision="2" size="small" controls-position="right" style="width: 100%" @change="updateCart" />
+                  <el-input-number v-if="row.allowPriceAdjust !== false" v-model="row.retailPrice" :min="0.01" :precision="4" size="small" controls-position="right" style="width: 100%" @change="updateCart" />
                   <span v-else>¥{{ row.retailPrice?.toFixed(2) }}</span>
                 </template>
               </template>
@@ -110,6 +110,7 @@
           :max-height="180"
           size="small"
           stripe
+          @row-contextmenu="showCartContextMenu"
         >
           <el-table-column prop="genericName" label="药名" min-width="140" show-overflow-tooltip />
           <el-table-column label="每剂(g)" width="110" align="center">
@@ -117,9 +118,10 @@
               <el-input-number v-model="row.dosePerGram" :min="0.5" :max="999" :precision="1" :step="1" size="small" controls-position="right" />
             </template>
           </el-table-column>
-          <el-table-column label="单价(元/g)" width="100" align="right">
+          <el-table-column label="单价(元/g)" width="110" align="right">
             <template #default="{ row }">
-              <span style="color:#8c919f;">¥{{ row.retailPrice?.toFixed(2) }}</span>
+              <el-input-number v-if="row.allowPriceAdjust !== false" v-model="row.retailPrice" :min="0.01" :precision="4" size="small" controls-position="right" style="width: 100%" @change="updateCart" />
+              <span v-else style="color:#8c919f;">¥{{ row.retailPrice?.toFixed(2) }}</span>
             </template>
           </el-table-column>
           <el-table-column label="小计" width="100" align="right">
@@ -265,7 +267,7 @@
           </div>
 
         <!-- 结算明细 -->
-        <div class="section-title">结算明细</div>
+        <div class="section-title" @contextmenu.prevent="showSettlementContextMenu($event)">结算明细</div>
         <div class="settlement-section" @contextmenu.prevent="showSettlementContextMenu($event)">
           <div class="summary-row">
             <span class="label">商品数量：</span>
@@ -355,25 +357,27 @@
 
         <!-- 结算按钮 -->
         <div class="action-buttons">
+          <div style="display: inline-block;" @contextmenu.prevent="showPrintConfig">
           <el-button
             type="primary"
             size="large"
             :disabled="cartItems.length === 0 || !paymentMethod"
             @click="handleCheckout"
-            @contextmenu.prevent="showPrintConfig"
             class="checkout-btn"
           >
             <el-icon><ShoppingCart /></el-icon>
             结算
           </el-button>
+          </div>
+          <div style="display: inline-block;" @contextmenu.prevent="showExpireConfig">
           <el-button 
             size="large" 
             @click="handleHangUp" 
-            @contextmenu.prevent="showExpireConfig"
             :disabled="cartItems.length === 0"
           >
             挂单
           </el-button>
+          </div>
           <el-button size="large" type="warning" @click="showRetrieveDialog">
             取单
             <el-badge v-if="suspendedCount > 0" :value="suspendedCount" class="suspend-badge" />
@@ -1142,7 +1146,7 @@ const showCartContextMenu = (row, column, event) => {
   event.preventDefault()
   cartContextMenu.x = event.clientX
   cartContextMenu.y = event.clientY
-  cartContextMenu.costPrice = row.costPrice != null ? Number(row.costPrice).toFixed(2) : '--'
+  cartContextMenu.costPrice = row.purchasePrice != null ? String(row.purchasePrice) : (row.costPrice != null ? String(row.costPrice) : '--')
   cartContextMenu.drugId = row.drugId || row.id
   cartContextMenu.visible = true
 }
@@ -1482,11 +1486,8 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
   if (fields.header?.shopName) {
     headerHtml += `<div class="shop-name" style="font-size:${shopNameSize};">${data.shopName}</div>`
   }
-  if (fields.header?.tenantName && data.tenantName) {
+  if (fields.header?.tenantName && data.tenantName && data.tenantName !== data.shopName) {
     headerHtml += `<div style="font-size:${tenantNameSize};color:#444;margin-top:2px;">${data.tenantName}</div>`
-  }
-  if (fields.header?.subtitle) {
-    headerHtml += `<div style="font-size:11px;color:#666;margin-top:4px;">${data.subtitle}</div>`
   }
 
   // -- 订单信息 --
@@ -1534,8 +1535,8 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
     }
     // 明细数据行
     let detailCols = ''
-    if (showSpec) detailCols += `<td style="font-size:${is58 ? '10px' : '11px'};color:#666;">${item.specification}</td>`
-    if (showBatch) detailCols += `<td style="font-size:${is58 ? '10px' : '11px'};color:#666;">${item.batchNo}</td>`
+    if (showSpec) detailCols += `<td style="font-size:${baseFontSize};color:#000;">${item.specification}</td>`
+    if (showBatch) detailCols += `<td style="font-size:${baseFontSize};color:#000;">${item.batchNo}</td>`
     detailCols += `<td style="text-align:right;">${item.quantity}</td>`
     detailCols += `<td style="text-align:right;">¥${item.amount}</td>`
     rows += `<tr>${detailCols}</tr>`
@@ -1547,7 +1548,7 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
     }
     if (showUnitPrice) extraParts.push('单价:¥' + item.unitPrice)
     if (extraParts.length > 0) {
-      rows += `<tr><td colspan="${colCount}" style="font-size:${is58 ? '9px' : '10px'};color:#999;padding-bottom:4px;">${extraParts.join(' | ')}</td></tr>`
+      rows += `<tr><td colspan="${colCount}" style="font-size:${is58 ? '10px' : '11px'};color:#000;padding-bottom:4px;">${extraParts.join(' | ')}</td></tr>`
     }
     return rows
   }).join('')
@@ -1603,7 +1604,7 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
     .total-section { margin-top: 10px; }
     .total-row { display: flex; justify-content: space-between; margin: 4px 0; }
     .total-amount { font-size: ${totalFontSize}; font-weight: bold; }
-    .footer { text-align: center; margin-top: 15px; font-size: ${is58 ? '10px' : '11px'}; color: #666; }
+    .footer { text-align: center; margin-top: 15px; font-size: ${is58 ? '11px' : '12px'}; color: #000; }
     .footer p { margin-top: 3px; }
     @page { size: ${bodyWidth} auto; margin: 0mm; }
     @media print { body { width: 100%; max-width: none; margin: 0; padding: ${bodyPadding}; } }
@@ -1622,27 +1623,36 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
   <div class="total-section">${summaryHtml}</div>
   <div class="divider"></div>
   ${footerHtml}
-  <script>
-    window.onload = function() {
-      // 延迟打印确保内容渲染完成
-      setTimeout(function() { window.print(); }, 200);
-    }
-  <\/script>
 </body>
 </html>`
 }
 
-// 第三层：执行打印
-const printReceipt = (orderNo) => {
-  const printWindow = window.open('', '_blank', 'width=320,height=600')
-  if (!printWindow) {
-    ElMessage.warning('浏览器拦截了打印窗口，请允许弹窗后重试')
-    return
+// 第三层：通过隐藏 iframe 执行打印（不打开新窗口）
+const printViaIframe = (html) => {
+  const iframe = document.createElement('iframe')
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none;'
+  document.body.appendChild(iframe)
+  const doc = iframe.contentDocument || iframe.contentWindow.document
+  doc.open()
+  doc.write(html)
+  doc.close()
+  iframe.contentWindow.onafterprint = () => {
+    document.body.removeChild(iframe)
   }
+  setTimeout(() => {
+    iframe.contentWindow.focus()
+    iframe.contentWindow.print()
+  }, 150)
+  // 兜底：5秒后自动移除 iframe
+  setTimeout(() => {
+    if (iframe.parentNode) document.body.removeChild(iframe)
+  }, 5000)
+}
+
+const printReceipt = (orderNo) => {
   const data = buildReceiptData(orderNo)
   const html = generateReceiptHtml(data, receiptFields.value, receiptPaperWidth.value)
-  printWindow.document.write(html)
-  printWindow.document.close()
+  printViaIframe(html)
 }
 
 // ========== 中药处方笺打印 ==========
@@ -1756,20 +1766,13 @@ const generateHerbReceiptHtml = (data, paperWidth) => {
 </table>
 <hr class="divider">
 <div class="footer">${data.footerText.replace(/\n/g, '<br>')}</div>
-<script>window.onload=function(){window.print();}<\/script>
 </body></html>`
 }
 
 const printHerbReceipt = (orderNo) => {
-  const printWindow = window.open('', '_blank', 'width=320,height=600')
-  if (!printWindow) {
-    ElMessage.warning('浏览器拦截了处方笺打印窗口，请允许弹窗后重试')
-    return
-  }
   const data = buildHerbReceiptData(orderNo)
   const html = generateHerbReceiptHtml(data, receiptPaperWidth.value)
-  printWindow.document.write(html)
-  printWindow.document.close()
+  printViaIframe(html)
 }
 
 // 格式化日期时间
@@ -1876,16 +1879,7 @@ const handleCheckout = async () => {
         setTimeout(() => printHerbReceipt(orderNo), 300)
       }
       
-      await ElMessageBox.alert(
-        `<div style="text-align:center;">
-          <p style="font-size:18px; font-weight:600; margin-bottom:8px;">结算成功</p>
-          <p>订单号: ${orderNo}</p>
-          <p>实付金额: <span style="color:#ff6b00; font-size:24px; font-weight:700;">¥${payAmount.value.toFixed(2)}</span></p>
-          <p style="margin-top:12px; color:#909399; font-size:12px;">支付方式: ${getPaymentLabel(paymentMethod.value)}</p>
-        </div>`,
-        '收银完成',
-        { dangerouslyUseHTMLString: true, confirmButtonText: '完成', center: true }
-      )
+      ElMessage.success(`结算成功，订单号: ${orderNo}`)
       // 重置状态
       cartItems.value = []
       herbDoseCount.value = 1
