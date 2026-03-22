@@ -263,6 +263,8 @@ public class DrugService {
         
         // 构建分类ID->名称缓存
         Map<Long, String> categoryNameMap = new HashMap<>();
+        // 查询中药饮片根分类ID（用于动态修正 isHerb）
+        Long herbRootCategoryId = null;
         List<Long> catIds = drugPage.getRecords().stream()
                 .map(Drug::getCategoryId)
                 .filter(Objects::nonNull)
@@ -276,12 +278,23 @@ public class DrugService {
                 categoryNameMap.put(cat.getId(), cat.getName());
             }
         }
+        // 查询中药饮片根分类ID
+        LambdaQueryWrapper<DrugCategory> herbWrapper = new LambdaQueryWrapper<>();
+        herbWrapper.eq(DrugCategory::getName, "中药饮片")
+                   .eq(DrugCategory::getParentId, 0L)
+                   .eq(DrugCategory::getTenantId, 0L)
+                   .eq(DrugCategory::getIsSystem, true);
+        DrugCategory herbRoot = drugCategoryMapper.selectOne(herbWrapper);
+        if (herbRoot != null) {
+            herbRootCategoryId = herbRoot.getId();
+        }
 
         // 构建返回结果
         Map<Long, BigDecimal> finalStockMap = stockMap;
         Map<Long, String> finalCategoryNameMap = categoryNameMap;
         Map<Long, List<Inventory>> finalDrugInvMap = drugInventoryMap;
         Map<Long, DrugBatch> finalBatchMap = batchMap;
+        Long finalHerbRootCategoryId = herbRootCategoryId;
         List<Map<String, Object>> records = drugPage.getRecords().stream()
                 .map(drug -> {
                     Map<String, Object> map = new HashMap<>();
@@ -344,8 +357,15 @@ public class DrugService {
                     map.put("batchNo", batchNo);
                     map.put("expireDate", expireDate);
                     
-                    // 中药饮片字段
-                    map.put("isHerb", drug.getIsHerb());
+                    // 中药饮片字段 — 动态修正 isHerb（兼容未正确设置标志的历史数据）
+                    boolean isHerb = Boolean.TRUE.equals(drug.getIsHerb());
+                    if (!isHerb && finalHerbRootCategoryId != null && finalHerbRootCategoryId.equals(drug.getCategoryId())) {
+                        isHerb = true;
+                    }
+                    if (!isHerb && drug.getHerbType() != null && !drug.getHerbType().isEmpty()) {
+                        isHerb = true;
+                    }
+                    map.put("isHerb", isHerb);
                     map.put("alias", drug.getAlias());
                     map.put("nature", drug.getNature());
                     map.put("flavor", drug.getFlavor());

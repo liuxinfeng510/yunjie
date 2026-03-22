@@ -35,6 +35,7 @@
           </div>
         </template>
         
+        <div class="cart-scroll-body">
         <!-- 普通药品表格 -->
         <el-table
           v-if="normalCartItems.length > 0"
@@ -89,49 +90,55 @@
         </el-table>
 
         <!-- 中药处方区 -->
-        <div v-if="herbCartItems.length > 0" class="herb-prescription-section">
-          <div class="herb-prescription-header">
-            <span class="herb-prescription-title">中药处方</span>
-            <div class="herb-dose-control">
-              <span class="herb-dose-label">副数</span>
-              <el-input-number v-model="herbDoseCount" :min="1" :max="99" size="small" controls-position="right" />
-              <span class="herb-dose-unit">副</span>
-            </div>
+        <div v-if="herbCartItems.length > 0" class="herb-prescription-header">
+          <span class="herb-prescription-title">中药处方</span>
+          <div class="herb-summary-info">
+            <span class="herb-summary-text">每剂{{ herbTotalGram.toFixed(1) }}g</span>
+            <span class="herb-summary-text">{{ herbDoseCount }}副{{ (herbTotalGram * herbDoseCount).toFixed(1) }}g</span>
+            <span class="herb-summary-amount">¥{{ herbTotalAmount.toFixed(2) }}</span>
           </div>
-          <el-table :data="herbCartItems" style="width: 100%" max-height="200" size="small" stripe>
-            <el-table-column prop="genericName" label="药名" min-width="140" show-overflow-tooltip />
-            <el-table-column label="每剂(g)" width="110" align="center">
-              <template #default="{ row }">
-                <el-input-number v-model="row.dosePerGram" :min="0.5" :max="999" :precision="1" :step="1" size="small" controls-position="right" />
-              </template>
-            </el-table-column>
-            <el-table-column label="单价(元/g)" width="100" align="right">
-              <template #default="{ row }">
-                <span style="color:#8c919f;">¥{{ row.retailPrice?.toFixed(2) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="小计" width="100" align="right">
-              <template #default="{ row }">
-                <span class="amount-text">¥{{ (row.dosePerGram * herbDoseCount * getEffectivePrice(row)).toFixed(2) }}</span>
-              </template>
-            </el-table-column>
-            <el-table-column label="" width="50" align="center">
-              <template #default="{ row }">
-                <el-button type="danger" size="small" text @click="removeFromCart(cartItems.indexOf(row))">
-                  <el-icon><Delete /></el-icon>
-                </el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-          <div class="herb-summary">
-            <span>每剂总重: {{ herbCartItems.reduce((s, i) => s + i.dosePerGram, 0).toFixed(1) }}g</span>
-            <span>{{ herbDoseCount }}副总重: {{ (herbCartItems.reduce((s, i) => s + i.dosePerGram, 0) * herbDoseCount).toFixed(1) }}g</span>
-            <span class="herb-total-amount">中药合计: ¥{{ herbCartItems.reduce((s, i) => s + i.dosePerGram * herbDoseCount * getEffectivePrice(i), 0).toFixed(2) }}</span>
+          <div class="herb-dose-control">
+            <span class="herb-dose-label">副数</span>
+            <el-input-number v-model="herbDoseCount" :min="1" :max="99" size="small" controls-position="right" />
+            <span class="herb-dose-unit">副</span>
           </div>
         </div>
+        <el-table
+          v-if="herbCartItems.length > 0"
+          :data="herbCartItems"
+          style="width: 100%"
+          :max-height="180"
+          size="small"
+          stripe
+        >
+          <el-table-column prop="genericName" label="药名" min-width="140" show-overflow-tooltip />
+          <el-table-column label="每剂(g)" width="110" align="center">
+            <template #default="{ row }">
+              <el-input-number v-model="row.dosePerGram" :min="0.5" :max="999" :precision="1" :step="1" size="small" controls-position="right" />
+            </template>
+          </el-table-column>
+          <el-table-column label="单价(元/g)" width="100" align="right">
+            <template #default="{ row }">
+              <span style="color:#8c919f;">¥{{ row.retailPrice?.toFixed(2) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="小计" width="100" align="right">
+            <template #default="{ row }">
+              <span class="amount-text">¥{{ (row.dosePerGram * herbDoseCount * getEffectivePrice(row)).toFixed(2) }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="" width="50" align="center">
+            <template #default="{ row }">
+              <el-button type="danger" size="small" text @click="removeFromCart(cartItems.indexOf(row))">
+                <el-icon><Delete /></el-icon>
+              </el-button>
+            </template>
+          </el-table-column>
+        </el-table>
         
         <div v-if="cartItems.length === 0" class="empty-cart">
           <el-empty description="购物车为空" :image-size="60" />
+        </div>
         </div>
       </el-card>
 
@@ -677,6 +684,8 @@ const herbDoseCount = ref(1)
 // 购物车分组
 const herbCartItems = computed(() => cartItems.value.filter(item => item.isHerb))
 const normalCartItems = computed(() => cartItems.value.filter(item => !item.isHerb))
+const herbTotalGram = computed(() => herbCartItems.value.reduce((s, i) => s + (i.dosePerGram || 0), 0))
+const herbTotalAmount = computed(() => herbCartItems.value.reduce((s, i) => s + (i.dosePerGram || 0) * herbDoseCount.value * getEffectivePrice(i), 0))
 
 // 会员信息
 const memberPhone = ref('')
@@ -911,8 +920,8 @@ const addToCart = (drug) => {
     return
   }
 
-  // 中药饮片走处方模式（通过isHerb字段或分类ID判断）
-  const isDrugHerb = drug.isHerb || (drug.categoryId && herbCategoryIds.value.includes(drug.categoryId))
+  // 中药饮片走处方模式（通过isHerb字段、分类ID或herbType判断）
+  const isDrugHerb = drug.isHerb || (drug.categoryId && herbCategoryIds.value.includes(drug.categoryId)) || (drug.herbType && drug.herbType.trim() !== '')
   if (isDrugHerb) {
     const existing = cartItems.value.find((item) => item.id === drug.id && item.isHerb)
     if (existing) {
@@ -1003,6 +1012,27 @@ const getSummaries = (param) => {
       sums[index] = data.reduce((sum, item) => sum + item.quantity, 0)
     } else if (column.label === '金额') {
       sums[index] = '¥' + data.reduce((sum, item) => sum + item.quantity * getEffectivePrice(item), 0).toFixed(2)
+    } else {
+      sums[index] = ''
+    }
+  })
+  return sums
+}
+
+const getHerbSummaries = (param) => {
+  const { columns } = param
+  const sums = []
+  const totalGram = herbCartItems.value.reduce((s, i) => s + i.dosePerGram, 0)
+  const totalAmount = herbCartItems.value.reduce((s, i) => s + i.dosePerGram * herbDoseCount.value * getEffectivePrice(i), 0)
+  columns.forEach((column, index) => {
+    if (index === 0) {
+      sums[index] = `每剂${totalGram.toFixed(1)}g`
+      return
+    }
+    if (column.label === '每剂(g)') {
+      sums[index] = `${herbDoseCount.value}副${(totalGram * herbDoseCount.value).toFixed(1)}g`
+    } else if (column.label === '小计') {
+      sums[index] = '¥' + totalAmount.toFixed(2)
     } else {
       sums[index] = ''
     }
@@ -1325,7 +1355,8 @@ const loadReceiptConfig = async () => {
     const res = await getConfigByGroup('sale')
     if (res.code === 200 && res.data) {
       const configs = {}
-      ;(res.data || []).forEach(item => { configs[item.configKey] = item.configValue })
+      const dataArr = Array.isArray(res.data) ? res.data : []
+      dataArr.forEach(item => { configs[item.configKey] = item.configValue })
       
       if (configs['sale.receipt_printer'] !== undefined) {
         enablePrint.value = configs['sale.receipt_printer'] === 'true'
@@ -2011,18 +2042,24 @@ const collectChildIds = (node) => {
   }
   return ids
 }
+const matchHerbRecursive = (nodes) => {
+  const ids = []
+  for (const node of nodes) {
+    if (HERB_KEYWORDS.some(kw => node.name.includes(kw))) {
+      ids.push(...collectChildIds(node))
+    } else if (node.children && node.children.length > 0) {
+      ids.push(...matchHerbRecursive(node.children))
+    }
+  }
+  return ids
+}
 const loadCategories = async () => {
   try {
     const res = await getCategoryTree()
     if (res.code === 200) {
       const all = res.data || []
-      // 匹配含"中药饮片/中草药/中药"关键词的顶层分类，并收集其所有子分类ID
-      const ids = []
-      for (const c of all) {
-        if (HERB_KEYWORDS.some(kw => c.name.includes(kw))) {
-          ids.push(...collectChildIds(c))
-        }
-      }
+      // 递归匹配含"中药饮片/中草药/中药"关键词的分类（含所有层级），并收集其所有子分类ID
+      const ids = matchHerbRecursive(all)
       herbCategoryIds.value = ids.length > 0 ? ids : []
     }
   } catch { /* 静默 */ }
@@ -2146,12 +2183,24 @@ const loadCategories = async () => {
   .cart-card {
     flex: 1;
     min-height: 0;
+    display: flex;
+    flex-direction: column;
+
+    :deep(.el-card__header) {
+      flex-shrink: 0;
+    }
 
     :deep(.el-card__body) {
-      display: flex;
-      flex-direction: column;
+      flex: 1;
+      height: 0;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+
+    .cart-scroll-body {
+      height: 100%;
       overflow-y: auto;
-      min-height: 0;
+      padding: 20px;
     }
 
     .empty-cart {
@@ -2179,75 +2228,63 @@ const loadCategories = async () => {
     }
   }
 
-  // === 中药处方区 ===
-  .herb-prescription-section {
+  // === 中药处方头部 ===
+  .herb-prescription-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
     margin-top: 12px;
+    background: linear-gradient(135deg, #e8f5e9, #dcedc8);
     border: 1.5px solid #c8e6c9;
-    border-radius: 10px;
-    overflow: hidden;
-    background: #f1f8e9;
+    border-bottom: none;
+    border-radius: 10px 10px 0 0;
+  }
 
-    .herb-prescription-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 10px 16px;
-      background: linear-gradient(135deg, #e8f5e9, #dcedc8);
-      border-bottom: 1px solid #c8e6c9;
+  .herb-prescription-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #2e7d32;
+  }
+
+  .herb-summary-info {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex: 1;
+    justify-content: center;
+
+    .herb-summary-text {
+      font-size: 14px;
+      color: #2d3748;
+      font-weight: 600;
     }
 
-    .herb-prescription-title {
+    .herb-summary-amount {
       font-size: 15px;
+      color: #e53e3e;
       font-weight: 700;
-      color: #2e7d32;
     }
+  }
 
-    .herb-dose-control {
-      display: flex;
-      align-items: center;
-      gap: 8px;
+  .herb-dose-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 
-      .herb-dose-label {
-        font-size: 14px;
-        color: #4a5568;
-        font-weight: 600;
-      }
-
-      .herb-dose-unit {
-        font-size: 14px;
-        color: #4a5568;
-      }
-
-      :deep(.el-input-number) {
-        width: 90px;
-      }
-    }
-
-    :deep(.el-table) {
-      background: transparent;
-    }
-
-    :deep(.el-table__header th) {
-      background: #e8f5e9 !important;
-      color: #2e7d32;
-    }
-
-    .herb-summary {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 10px 16px;
-      background: linear-gradient(135deg, #e8f5e9, #dcedc8);
-      border-top: 1px solid #c8e6c9;
-      font-size: 13px;
+    .herb-dose-label {
+      font-size: 14px;
       color: #4a5568;
-      gap: 16px;
+      font-weight: 600;
+    }
 
-      .herb-total-amount {
-        font-size: 15px;
-        font-weight: 700;
-        color: #e85d04;
-      }
+    .herb-dose-unit {
+      font-size: 14px;
+      color: #4a5568;
+    }
+
+    :deep(.el-input-number) {
+      width: 90px;
     }
   }
 

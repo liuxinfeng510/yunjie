@@ -67,12 +67,13 @@
               <el-icon><Cherry /></el-icon>
               <span>中药管理</span>
             </template>
-            <el-menu-item index="/herb">中药饮片</el-menu-item>
             <el-menu-item index="/herb/cabinet">斗谱管理</el-menu-item>
             <el-menu-item index="/herb/gsp">中药GSP</el-menu-item>
             <el-menu-item index="/herb/prescription">中药处方</el-menu-item>
             <el-menu-item index="/herb/incompatibility">配伍禁忌</el-menu-item>
             <el-menu-item index="/herb/scale-device">电子秤设备</el-menu-item>
+            <el-menu-item index="/herb/fill-log">装斗记录</el-menu-item>
+            <el-menu-item index="/herb/clean-log">清斗记录</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="inventory-menu">
@@ -145,6 +146,8 @@
             <el-menu-item index="/gsp/maintenance">养护记录</el-menu-item>
             <el-menu-item index="/gsp/temperature">温湿度监控</el-menu-item>
             <el-menu-item index="/gsp/defective">不良品管理</el-menu-item>
+            <el-menu-item index="/gsp/near-expiry-sale">近效期催销</el-menu-item>
+            <el-menu-item index="/gsp/equipment">养护设备</el-menu-item>
             <el-menu-item index="/gsp/destruction">药品销毁</el-menu-item>
             <el-menu-item index="/gsp/training">员工培训</el-menu-item>
             <el-menu-item index="/gsp/report">GSP报表</el-menu-item>

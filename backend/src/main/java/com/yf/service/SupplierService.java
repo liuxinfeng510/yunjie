@@ -25,7 +25,7 @@ public class SupplierService {
      */
     public List<Supplier> search(String keyword) {
         LambdaQueryWrapper<Supplier> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Supplier::getStatus, "active");
+        wrapper.eq(Supplier::getStatus, "启用");
         if (StringUtils.hasText(keyword)) {
             wrapper.and(w -> w
                 .like(Supplier::getName, keyword)
@@ -116,7 +116,7 @@ public class SupplierService {
      */
     public List<Supplier> list() {
         LambdaQueryWrapper<Supplier> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Supplier::getStatus, "active")
+        wrapper.eq(Supplier::getStatus, "启用")
                .orderByAsc(Supplier::getName);
         return supplierMapper.selectList(wrapper);
     }

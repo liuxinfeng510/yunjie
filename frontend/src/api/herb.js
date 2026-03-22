@@ -29,6 +29,30 @@ export function createCabinet(data) {
 export function updateCabinet(id, data) {
   return request.put(`/herb-cabinet/${id}`, data)
 }
+export function deleteCabinet(id) {
+  return request.delete(`/herb-cabinet/${id}`)
+}
+export function assignCabinetCell(cellId, data) {
+  return request.put(`/herb-cabinet/cell/${cellId}/assign`, data)
+}
+export function refillCabinetCell(cellId, data) {
+  return request.put(`/herb-cabinet/cell/${cellId}/refill`, data)
+}
+export function cleanCabinetCell(cellId) {
+  return request.put(`/herb-cabinet/cell/${cellId}/clean`)
+}
+export function getAssignedHerbIds() {
+  return request.get('/herb-cabinet/assigned-herb-ids')
+}
+export function getHerbDrugList() {
+  return request.get('/herb-cabinet/herb-drug-list')
+}
+export function downloadCabinetImportTemplate(cabinetId) {
+  return request.get(`/herb-cabinet/${cabinetId}/import-template`, { responseType: 'blob' })
+}
+export function batchImportCabinetAssignment(cabinetId, formData) {
+  return request.post(`/herb-cabinet/${cabinetId}/batch-import`, formData)
+}
 
 // GSP记录
 export function createFillRecord(data) {
@@ -90,4 +114,26 @@ export function deleteIncompatibility(id) {
 }
 export function checkHerbIncompatibility(herb1Id, herb2Id) {
   return request.get('/herb-incompatibility/check', { params: { herb1Id, herb2Id } })
+}
+
+// ========== 装斗记录 ==========
+export function getHerbFillLogPage(params) {
+  return request.get('/herb-fill-log/page', { params })
+}
+export function getHerbFillLogList(params) {
+  return request.get('/herb-fill-log/list', { params })
+}
+export function updateHerbFillLogStatus(id, data) {
+  return request.put(`/herb-fill-log/${id}/status`, data)
+}
+
+// ========== 清斗记录 ==========
+export function getHerbCleanLogPage(params) {
+  return request.get('/herb-clean-log/page', { params })
+}
+export function getHerbCleanLogList(params) {
+  return request.get('/herb-clean-log/list', { params })
+}
+export function updateHerbCleanLogStatus(id, data) {
+  return request.put(`/herb-clean-log/${id}/status`, data)
 }

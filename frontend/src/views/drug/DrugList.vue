@@ -242,6 +242,32 @@
               </el-form-item>
             </el-col>
           </el-row>
+          <el-row :gutter="16">
+            <el-col :span="6">
+              <el-form-item label="库存下限">
+                <el-input-number v-model="formData.stockLowerLimit" :min="0" placeholder="最小库存" style="width: 100%;" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="库存上限">
+                <el-input-number v-model="formData.stockUpperLimit" :min="0" placeholder="最大库存" style="width: 100%;" />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="养护方式">
+                <DictSelect
+                  v-model="formData.maintenanceMethod"
+                  dict-type="maintenance_method"
+                  placeholder="请选择养护方式"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :span="6">
+              <el-form-item label="重点养护">
+                <el-switch v-model="formData.isKeyMaintenance" />
+              </el-form-item>
+            </el-col>
+          </el-row>
         </template>
 
         <!-- ===== 西药/成药字段 ===== -->

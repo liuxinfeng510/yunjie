@@ -22,7 +22,7 @@
       </el-col>
       <el-col :span="8">
         <el-card shadow="hover" class="warning-card near">
-          <el-statistic title="90天内到期" :value="summary.nearExpiryCount">
+          <el-statistic :title="nearExpiryDays + '天内到期'" :value="summary.nearExpiryCount">
             <template #suffix>
               <span style="font-size: 14px">批</span>
             </template>
@@ -36,7 +36,15 @@
       <template #header>
         <div class="card-header">
           <span>效期预警明细</span>
-          <el-button type="primary" @click="loadData">刷新</el-button>
+          <div style="display: flex; align-items: center; gap: 12px;">
+            <span style="font-size: 14px; color: #606266;">近效期天数：</span>
+            <el-select v-model="nearExpiryDays" style="width: 120px;" @change="loadData">
+              <el-option :label="'30天'" :value="30" />
+              <el-option :label="'90天'" :value="90" />
+              <el-option :label="'180天'" :value="180" />
+            </el-select>
+            <el-button type="primary" @click="loadData">刷新</el-button>
+          </div>
         </div>
       </template>
 
@@ -83,8 +91,8 @@
           </el-table>
         </el-tab-pane>
 
-        <!-- 近效期（90天内） -->
-        <el-tab-pane label="近效期(90天内)" name="near">
+        <!-- 近效期 -->
+        <el-tab-pane :label="'近效期(' + nearExpiryDays + '天内)'" name="near">
           <el-table :data="summary.nearExpiryBatches" size="small" border v-loading="loading">
             <el-table-column prop="drugName" label="商品名称" min-width="150" />
             <el-table-column prop="specification" label="规格" width="120" />
@@ -135,6 +143,7 @@ import { getExpiryWarningSummary, queryTraceCode } from '@/api/batch'
 
 const loading = ref(false)
 const activeTab = ref('expired')
+const nearExpiryDays = ref(180)
 
 const summary = ref({
   expiredCount: 0,
@@ -152,8 +161,7 @@ const traceResult = ref(null)
 async function loadData() {
   loading.value = true
   try {
-    // 假设门店ID为1
-    const res = await getExpiryWarningSummary(1)
+    const res = await getExpiryWarningSummary(null, nearExpiryDays.value)
     summary.value = res.data || summary.value
   } catch (e) {
     ElMessage.error('加载预警数据失败')

@@ -40,7 +40,7 @@ public class ExpiryWarningService {
     /**
      * 获取效期预警汇总
      */
-    public ExpiryWarningSummary getWarningSummary(Long storeId) {
+    public ExpiryWarningSummary getWarningSummary(Long storeId, int nearExpiryDays) {
         ExpiryWarningSummary summary = new ExpiryWarningSummary();
 
         // 已过期
@@ -53,8 +53,8 @@ public class ExpiryWarningService {
         summary.setUrgentCount(urgentBatches.size());
         summary.setUrgentBatches(buildWarningItems(urgentBatches, "urgent", storeId));
 
-        // 近效期（90天内，排除紧急）
-        List<DrugBatch> nearExpiryBatches = getNearExpiryBatches(NEAR_EXPIRY_DAYS);
+        // 近效期（用户指定天数，排除紧急）
+        List<DrugBatch> nearExpiryBatches = getNearExpiryBatches(nearExpiryDays);
         nearExpiryBatches.removeIf(b -> urgentBatches.stream()
                 .anyMatch(u -> u.getId().equals(b.getId())));
         summary.setNearExpiryCount(nearExpiryBatches.size());

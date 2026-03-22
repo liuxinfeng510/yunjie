@@ -5,20 +5,27 @@ import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.Inventory;
 import com.yf.entity.Drug;
+import com.yf.entity.HerbCleanLog;
+import com.yf.entity.HerbFillLog;
 import com.yf.entity.StockIn;
 import com.yf.entity.StockInDetail;
 import com.yf.entity.Store;
 import com.yf.entity.Supplier;
+import com.yf.entity.SysUser;
 import com.yf.exception.BusinessException;
 import com.yf.mapper.StockInDetailMapper;
 import com.yf.mapper.StockInMapper;
+import com.yf.mapper.SysUserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,6 +42,9 @@ public class StockInService {
     private final SupplierService supplierService;
     private final DrugTraceCodeService drugTraceCodeService;
     private final DrugService drugService;
+    private final HerbFillLogService herbFillLogService;
+    private final HerbCleanLogService herbCleanLogService;
+    private final SysUserMapper sysUserMapper;
     
     /**
      * 分页查询入库单
@@ -246,11 +256,97 @@ public class StockInService {
             }
         }
         
+        // 自动生成中药饮片装斗/清斗记录
+        generateHerbLogs(stockIn, details);
+        
         stockIn.setStatus("已入库");
         stockInMapper.updateById(stockIn);
         
         // 激活追溯码 pending -> in_stock
         drugTraceCodeService.activateByStockInId(id);
+    }
+
+    /**
+     * 为中药饮片自动生成装斗记录和清斗记录
+     */
+    private void generateHerbLogs(StockIn stockIn, List<StockInDetail> details) {
+        // 查询入库操作人姓名
+        String operatorName = "";
+        if (stockIn.getCreatedBy() != null) {
+            SysUser user = sysUserMapper.selectById(stockIn.getCreatedBy());
+            if (user != null && user.getRealName() != null) {
+                operatorName = user.getRealName();
+            }
+        }
+
+        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMddHHmmss"));
+        LocalDate logDate = stockIn.getCreatedAt() != null
+                ? stockIn.getCreatedAt().toLocalDate() : LocalDate.now();
+
+        List<HerbFillLog> fillLogs = new ArrayList<>();
+        List<HerbCleanLog> cleanLogs = new ArrayList<>();
+        int seq = 1;
+
+        for (StockInDetail detail : details) {
+            Drug drug = drugService.getById(detail.getDrugId());
+            if (drug == null || !Boolean.TRUE.equals(drug.getIsHerb())) {
+                continue;
+            }
+
+            String seqStr = String.format("%03d", seq);
+
+            // 装斗记录
+            HerbFillLog fill = new HerbFillLog();
+            fill.setRecordNo("ZD" + timestamp + seqStr);
+            fill.setStockInId(stockIn.getId());
+            fill.setDrugId(detail.getDrugId());
+            fill.setDrugName(detail.getDrugName());
+            fill.setSpecification(detail.getSpecification());
+            fill.setUnit(detail.getUnit());
+            fill.setBatchNo(detail.getBatchNo());
+            fill.setFillQuantity(detail.getQuantity());
+            fill.setFillDate(logDate);
+            fill.setOrigin(drug.getOrigin());
+            fill.setManufacturer(detail.getManufacturer());
+            fill.setSupplierName(stockIn.getSupplierName());
+            fill.setQualityStatus("合格");
+            fill.setAcceptanceResult("合格");
+            fill.setFillPerson(operatorName);
+            fill.setReviewer("执业药师");
+            fillLogs.add(fill);
+
+            // 清斗记录
+            HerbCleanLog clean = new HerbCleanLog();
+            clean.setRecordNo("QD" + timestamp + seqStr);
+            clean.setStockInId(stockIn.getId());
+            clean.setDrugId(detail.getDrugId());
+            clean.setDrugName(detail.getDrugName());
+            clean.setSpecification(detail.getSpecification());
+            clean.setUnit(detail.getUnit());
+            clean.setBatchNo(detail.getBatchNo());
+            // 剩余数量默认为当前库存数量
+            BigDecimal remainingQty = BigDecimal.ZERO;
+            Inventory inv = inventoryService.getByStoreAndDrug(stockIn.getStoreId(), detail.getDrugId(), null);
+            if (inv != null && inv.getQuantity() != null) {
+                remainingQty = inv.getQuantity();
+            }
+            clean.setRemainingQuantity(remainingQty);
+            clean.setCleanDate(logDate);
+            clean.setOrigin(drug.getOrigin());
+            clean.setManufacturer(detail.getManufacturer());
+            clean.setReviewStatus("已复核");
+            clean.setCleanPerson(operatorName);
+            cleanLogs.add(clean);
+
+            seq++;
+        }
+
+        if (!fillLogs.isEmpty()) {
+            herbFillLogService.batchCreate(fillLogs);
+        }
+        if (!cleanLogs.isEmpty()) {
+            herbCleanLogService.batchCreate(cleanLogs);
+        }
     }
 
     /**

@@ -79,8 +79,8 @@ export function getExpiredBatches() {
 }
 
 // 效期预警
-export function getExpiryWarningSummary(storeId) {
-  return request.get('/expiry-warning/summary', { params: { storeId } })
+export function getExpiryWarningSummary(storeId, nearExpiryDays) {
+  return request.get('/expiry-warning/summary', { params: { storeId, nearExpiryDays } })
 }
 
 export function triggerExpiryCheck() {

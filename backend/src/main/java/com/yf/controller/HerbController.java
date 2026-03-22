@@ -7,6 +7,8 @@ import com.yf.vo.ApiResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 中药饮片控制器
  */
@@ -16,6 +18,14 @@ import org.springframework.web.bind.annotation.*;
 public class HerbController {
     
     private final HerbService herbService;
+    
+    /**
+     * 查询全部中药列表（用于下拉选项）
+     */
+    @GetMapping("/list")
+    public ApiResponse<List<Herb>> list() {
+        return ApiResponse.success(herbService.listAll());
+    }
     
     /**
      * 分页查询

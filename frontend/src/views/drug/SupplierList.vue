@@ -16,8 +16,8 @@
         </el-form-item>
         <el-form-item label="状态">
           <el-select v-model="searchForm.status" placeholder="请选择状态" clearable style="width: 120px;">
-            <el-option label="启用" value="active" />
-            <el-option label="禁用" value="inactive" />
+            <el-option label="启用" value="启用" />
+            <el-option label="禁用" value="禁用" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -43,8 +43,8 @@
         <el-table-column prop="address" label="地址" min-width="200" show-overflow-tooltip />
         <el-table-column prop="status" label="状态" width="80">
           <template #default="{ row }">
-            <el-tag :type="row.status === 'active' ? 'success' : 'info'">
-              {{ row.status === 'active' ? '启用' : '禁用' }}
+            <el-tag :type="row.status === '启用' ? 'success' : 'info'">
+              {{ row.status }}
             </el-tag>
           </template>
         </el-table-column>

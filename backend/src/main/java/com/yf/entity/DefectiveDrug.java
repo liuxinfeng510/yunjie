@@ -21,6 +21,11 @@ public class DefectiveDrug extends BaseEntity {
     private Long storeId;
     
     /**
+     * 台帐编号
+     */
+    private String registerNo;
+    
+    /**
      * 药品ID
      */
     private Long drugId;
@@ -31,6 +36,16 @@ public class DefectiveDrug extends BaseEntity {
     private String drugName;
     
     /**
+     * 规格
+     */
+    private String specification;
+    
+    /**
+     * 生产企业
+     */
+    private String manufacturer;
+    
+    /**
      * 批次ID
      */
     private Long batchId;
@@ -39,6 +54,11 @@ public class DefectiveDrug extends BaseEntity {
      * 批号
      */
     private String batchNo;
+    
+    /**
+     * 有效期至
+     */
+    private LocalDate expireDate;
     
     /**
      * 不良原因：expired/damaged/quality/recall/other
@@ -81,9 +101,24 @@ public class DefectiveDrug extends BaseEntity {
     private String images;
     
     /**
+     * 隔离存放位置
+     */
+    private String isolationLocation;
+    
+    /**
      * 处置方式：pending/return/destroy/other
      */
     private String disposalMethod;
+    
+    /**
+     * 处置日期
+     */
+    private LocalDate disposalDate;
+    
+    /**
+     * 处置人姓名
+     */
+    private String disposalHandlerName;
     
     /**
      * 处置状态：locked/processing/completed

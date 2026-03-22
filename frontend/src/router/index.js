@@ -96,12 +96,6 @@ const routes = [
       },
       // 中药管理
       {
-        path: 'herb',
-        name: 'HerbList',
-        component: () => import('@/views/herb/HerbList.vue'),
-        meta: { title: '中药饮片', icon: 'Cherry' }
-      },
-      {
         path: 'herb/cabinet',
         name: 'HerbCabinet',
         component: () => import('@/views/herb/CabinetManage.vue'),
@@ -136,6 +130,18 @@ const routes = [
         name: 'ScaleDevice',
         component: () => import('@/views/herb/ScaleDevice.vue'),
         meta: { title: '电子秤设备' }
+      },
+      {
+        path: 'herb/fill-log',
+        name: 'HerbFillLog',
+        component: () => import('@/views/herb/HerbFillLog.vue'),
+        meta: { title: '装斗记录' }
+      },
+      {
+        path: 'herb/clean-log',
+        name: 'HerbCleanLog',
+        component: () => import('@/views/herb/HerbCleanLog.vue'),
+        meta: { title: '清斗记录' }
       },
       // 库存管理
       {
@@ -346,6 +352,18 @@ const routes = [
         name: 'GspReport',
         component: () => import('@/views/gsp/GspReport.vue'),
         meta: { title: 'GSP报表' }
+      },
+      {
+        path: 'gsp/near-expiry-sale',
+        name: 'NearExpirySale',
+        component: () => import('@/views/gsp/NearExpirySale.vue'),
+        meta: { title: '近效期催销' }
+      },
+      {
+        path: 'gsp/equipment',
+        name: 'EquipmentManage',
+        component: () => import('@/views/gsp/EquipmentManage.vue'),
+        meta: { title: '养护设备' }
       },
       // 系统管理
       {

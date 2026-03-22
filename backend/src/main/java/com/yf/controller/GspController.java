@@ -63,7 +63,7 @@ public class GspController {
     }
     
     /**
-     * 分页查询养护记录
+     * 分页查询养护记录（增加药品名称、是否重点养护筛选）
      */
     @GetMapping("/maintenances")
     public ApiResponse<Page<DrugMaintenance>> getMaintenances(
@@ -71,12 +71,32 @@ public class GspController {
             @RequestParam(required = false) String maintenanceType,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime,
+            @RequestParam(required = false) String drugName,
+            @RequestParam(required = false) Boolean isKeyDrug,
             @RequestParam(defaultValue = "1") int pageNum,
             @RequestParam(defaultValue = "10") int pageSize) {
         
         Page<DrugMaintenance> result = drugMaintenanceService.page(storeId, maintenanceType, 
-                startTime, endTime, pageNum, pageSize);
+                startTime, endTime, drugName, isKeyDrug, pageNum, pageSize);
         return ApiResponse.success(result);
+    }
+
+    /**
+     * 查询某药品的养护历史（重点养护档案）
+     */
+    @GetMapping("/maintenance/drug/{drugId}")
+    public ApiResponse<java.util.List<DrugMaintenance>> getMaintenanceByDrug(@PathVariable Long drugId) {
+        return ApiResponse.success(drugMaintenanceService.listByDrug(drugId));
+    }
+
+    /**
+     * 按日期范围查询养护记录（非分页，用于打印）
+     */
+    @GetMapping("/maintenance/list")
+    public ApiResponse<java.util.List<DrugMaintenance>> listMaintenances(
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime startTime,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDateTime endTime) {
+        return ApiResponse.success(drugMaintenanceService.listByDateRange(startTime, endTime));
     }
     
     /**

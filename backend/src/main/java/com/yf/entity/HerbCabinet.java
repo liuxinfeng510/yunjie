@@ -38,6 +38,11 @@ public class HerbCabinet extends BaseEntity {
     private String location;
     
     /**
+     * 每行子格数配置JSON，如{"1":3,"2":3,"3":2}
+     */
+    private String rowCellConfig;
+    
+    /**
      * 状态
      */
     private String status;

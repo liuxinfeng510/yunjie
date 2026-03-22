@@ -24,8 +24,9 @@ public class ExpiryWarningController {
      */
     @GetMapping("/summary")
     public ApiResponse<ExpiryWarningSummary> getSummary(
-            @RequestParam(required = false) Long storeId) {
-        return ApiResponse.success(expiryWarningService.getWarningSummary(storeId));
+            @RequestParam(required = false) Long storeId,
+            @RequestParam(defaultValue = "180") int nearExpiryDays) {
+        return ApiResponse.success(expiryWarningService.getWarningSummary(storeId, nearExpiryDays));
     }
 
     /**

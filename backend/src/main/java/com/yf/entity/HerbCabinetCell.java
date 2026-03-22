@@ -30,6 +30,11 @@ public class HerbCabinetCell extends BaseEntity {
     private Integer columnNum;
     
     /**
+     * 子格序号(1=A,2=B,3=C,4=D)
+     */
+    private Integer subIndex;
+    
+    /**
      * 标签
      */
     private String label;

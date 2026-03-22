@@ -31,6 +31,26 @@ public class DrugMaintenance extends BaseEntity {
     private String drugName;
     
     /**
+     * 批号
+     */
+    private String batchNo;
+    
+    /**
+     * 规格
+     */
+    private String specification;
+    
+    /**
+     * 生产企业
+     */
+    private String manufacturer;
+    
+    /**
+     * 是否重点养护品种
+     */
+    private Boolean isKeyDrug;
+    
+    /**
      * 养护类型（日常养护、重点养护、特殊养护）
      */
     private String maintenanceType;

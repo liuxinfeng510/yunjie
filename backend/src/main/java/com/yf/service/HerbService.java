@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import java.util.List;
+
 /**
  * 中药饮片服务类
  */
@@ -59,6 +61,15 @@ public class HerbService {
      */
     public boolean deleteById(Long id) {
         return herbMapper.deleteById(id) > 0;
+    }
+
+    /**
+     * 查询全部中药列表（用于下拉选项）
+     */
+    public List<Herb> listAll() {
+        LambdaQueryWrapper<Herb> wrapper = new LambdaQueryWrapper<>();
+        wrapper.orderByAsc(Herb::getName);
+        return herbMapper.selectList(wrapper);
     }
 
     /**

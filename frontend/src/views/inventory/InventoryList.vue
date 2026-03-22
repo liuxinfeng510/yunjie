@@ -10,21 +10,6 @@
             @clear="handleSearch"
           />
         </el-form-item>
-        <el-form-item label="所属门店">
-          <el-select
-            v-model="searchForm.storeId"
-            placeholder="请选择门店"
-            clearable
-            @clear="handleSearch"
-          >
-            <el-option
-              v-for="store in stores"
-              :key="store.id"
-              :label="store.name"
-              :value="store.id"
-            />
-          </el-select>
-        </el-form-item>
         <el-form-item label="低库存预警">
           <el-switch v-model="searchForm.lowStock" @change="handleSearch" />
         </el-form-item>
@@ -99,7 +84,6 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="storeName" label="所属门店" width="150" />
         <el-table-column prop="updateTime" label="更新时间" width="160" />
       </el-table>
 
@@ -124,17 +108,9 @@ import { ElMessage } from 'element-plus'
 import { Search, Refresh, Download } from '@element-plus/icons-vue'
 import { getInventoryPage, getInventoryWarnings } from '@/api/inventory'
 
-// 门店数据（示例，实际应从API获取）
-const stores = ref([
-  { id: 1, name: '总店' },
-  { id: 2, name: '分店1' },
-  { id: 3, name: '分店2' }
-])
-
 // 搜索表单
 const searchForm = reactive({
   drugName: '',
-  storeId: null,
   lowStock: false
 })
 
@@ -182,7 +158,6 @@ const handleSearch = () => {
 // 重置
 const handleReset = () => {
   searchForm.drugName = ''
-  searchForm.storeId = null
   searchForm.lowStock = false
   handleSearch()
 }
