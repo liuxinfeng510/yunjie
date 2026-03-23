@@ -3,13 +3,16 @@ package com.yf.service;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.yf.entity.Drug;
+import com.yf.entity.DrugBatch;
 import com.yf.entity.Inventory;
 import com.yf.entity.Store;
 import com.yf.exception.BusinessException;
+import com.yf.mapper.DrugBatchMapper;
 import com.yf.mapper.DrugMapper;
 import com.yf.mapper.InventoryMapper;
 import com.yf.mapper.StoreMapper;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -23,12 +26,14 @@ import java.util.stream.Collectors;
 /**
  * 库存服务
  */
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class InventoryService {
     
     private final InventoryMapper inventoryMapper;
     private final DrugMapper drugMapper;
+    private final DrugBatchMapper drugBatchMapper;
     private final StoreMapper storeMapper;
     
     /**
@@ -154,7 +159,8 @@ public class InventoryService {
             LambdaQueryWrapper<Inventory> w = new LambdaQueryWrapper<>();
             w.eq(Inventory::getStoreId, storeId)
              .eq(Inventory::getDrugId, drugId)
-             .eq(Inventory::getBatchId, batchId);
+             .eq(Inventory::getBatchId, batchId)
+             .last("LIMIT 1");
             Inventory inv = inventoryMapper.selectOne(w);
             if (inv != null) return inv;
         }
@@ -204,32 +210,86 @@ public class InventoryService {
     }
     
     /**
-     * 调整库存
+     * 调整库存（出库时支持跨批次 FEFO 扣减）
      */
     @Transactional(rollbackFor = Exception.class)
     public void adjustStock(Long storeId, Long drugId, Long batchId, BigDecimal quantity, String type) {
-        Inventory inventory = findInventoryForAdjust(storeId, drugId, batchId);
-        
-        if (inventory == null) {
-            throw new BusinessException("库存记录不存在(drugId=" + drugId + ")");
-        }
-        
-        BigDecimal newQuantity;
         if ("IN".equals(type)) {
-            // 入库
-            newQuantity = inventory.getQuantity().add(quantity);
-        } else if ("OUT".equals(type)) {
-            // 出库
-            newQuantity = inventory.getQuantity().subtract(quantity);
-            if (newQuantity.compareTo(BigDecimal.ZERO) < 0) {
-                throw new BusinessException("库存不足");
+            // 入库：直接加到指定记录
+            Inventory inventory = findInventoryForAdjust(storeId, drugId, batchId);
+            if (inventory == null) {
+                log.warn("库存记录不存在: storeId={}, drugId={}, batchId={}", storeId, drugId, batchId);
+                throw new BusinessException("库存记录不存在(drugId=" + drugId + ")");
             }
-        } else {
+            inventory.setQuantity(inventory.getQuantity().add(quantity));
+            inventoryMapper.updateById(inventory);
+            return;
+        }
+
+        if (!"OUT".equals(type)) {
             throw new BusinessException("无效的调整类型");
         }
-        
-        inventory.setQuantity(newQuantity);
-        inventoryMapper.updateById(inventory);
+
+        // 出库：先尝试从指定批次扣
+        Inventory primary = findInventoryForAdjust(storeId, drugId, batchId);
+        if (primary != null && primary.getQuantity().compareTo(quantity) >= 0) {
+            // 指定批次足够，直接扣
+            primary.setQuantity(primary.getQuantity().subtract(quantity));
+            inventoryMapper.updateById(primary);
+            return;
+        }
+
+        // 指定批次不够，按 FEFO 顺序从所有批次扣减
+        LambdaQueryWrapper<Inventory> w = new LambdaQueryWrapper<>();
+        w.eq(Inventory::getDrugId, drugId)
+         .gt(Inventory::getQuantity, 0);
+        if (storeId != null) {
+            w.eq(Inventory::getStoreId, storeId);
+        }
+        List<Inventory> invList = inventoryMapper.selectList(w);
+
+        // 按到期日排序（FEFO），无批次的排最后
+        Map<Long, DrugBatch> batchCache = new HashMap<>();
+        if (!invList.isEmpty()) {
+            List<Long> bIds = invList.stream().map(Inventory::getBatchId)
+                    .filter(java.util.Objects::nonNull).distinct().collect(Collectors.toList());
+            if (!bIds.isEmpty()) {
+                for (DrugBatch b : drugBatchMapper.selectBatchIds(bIds)) {
+                    batchCache.put(b.getId(), b);
+                }
+            }
+        }
+        invList.sort((a, b) -> {
+            java.time.LocalDate ea = a.getBatchId() != null && batchCache.containsKey(a.getBatchId())
+                    ? batchCache.get(a.getBatchId()).getExpireDate() : null;
+            java.time.LocalDate eb = b.getBatchId() != null && batchCache.containsKey(b.getBatchId())
+                    ? batchCache.get(b.getBatchId()).getExpireDate() : null;
+            if (ea == null && eb == null) return 0;
+            if (ea == null) return 1;
+            if (eb == null) return -1;
+            return ea.compareTo(eb);
+        });
+
+        BigDecimal totalAvailable = invList.stream()
+                .map(Inventory::getQuantity).reduce(BigDecimal.ZERO, BigDecimal::add);
+        if (totalAvailable.compareTo(quantity) < 0) {
+            log.warn("库存不足(FEFO): storeId={}, drugId={}, 请求={}, 总可用={}", storeId, drugId, quantity, totalAvailable);
+            throw new BusinessException("库存不足(drugId=" + drugId + ",需要" + quantity + ",现有" + totalAvailable + ")");
+        }
+
+        BigDecimal remaining = quantity;
+        for (Inventory inv : invList) {
+            if (remaining.compareTo(BigDecimal.ZERO) <= 0) break;
+            BigDecimal available = inv.getQuantity();
+            if (available.compareTo(remaining) >= 0) {
+                inv.setQuantity(available.subtract(remaining));
+                remaining = BigDecimal.ZERO;
+            } else {
+                remaining = remaining.subtract(available);
+                inv.setQuantity(BigDecimal.ZERO);
+            }
+            inventoryMapper.updateById(inv);
+        }
     }
     
     /**

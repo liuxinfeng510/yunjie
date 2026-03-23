@@ -38,6 +38,14 @@ public class HerbCabinetController {
     }
     
     /**
+     * 查询有绑定药材的药柜ID集合
+     */
+    @GetMapping("/bound-ids")
+    public ApiResponse<Set<Long>> getBoundCabinetIds() {
+        return ApiResponse.success(herbCabinetService.getBoundCabinetIds());
+    }
+    
+    /**
      * 查询所有已分配药材的名称集合
      */
     @GetMapping("/assigned-herb-ids")
@@ -86,8 +94,12 @@ public class HerbCabinetController {
      */
     @DeleteMapping("/{id}")
     public ApiResponse<Void> delete(@PathVariable Long id) {
-        boolean success = herbCabinetService.deleteById(id);
-        return success ? ApiResponse.success() : ApiResponse.error("删除失败");
+        try {
+            boolean success = herbCabinetService.deleteById(id);
+            return success ? ApiResponse.success() : ApiResponse.error("删除失败");
+        } catch (RuntimeException e) {
+            return ApiResponse.error(e.getMessage());
+        }
     }
     
     /**

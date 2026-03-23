@@ -129,6 +129,7 @@
               <span class="amount-text">¥{{ (row.dosePerGram * herbDoseCount * getEffectivePrice(row)).toFixed(2) }}</span>
             </template>
           </el-table-column>
+          <el-table-column prop="stock" label="库存" width="60" align="center" />
           <el-table-column label="" width="50" align="center">
             <template #default="{ row }">
               <el-button type="danger" size="small" text @click="removeFromCart(cartItems.indexOf(row))">
@@ -589,7 +590,7 @@ import { Search, User, Delete, Wallet, ChatDotRound, CreditCard, FirstAidKit, Sh
 import { getDrugPage, getCategoryTree } from '@/api/drug'
 import { searchMembers, getMemberLevelList, getMember } from '@/api/member'
 import { createSaleOrder, createSuspendedOrder, getSuspendedOrderList, retrieveSuspendedOrder, deleteSuspendedOrder, getSuspendedOrderExpireMinutes, updateSuspendedOrderExpireMinutes } from '@/api/sale'
-import { getConfigByGroup, setConfigValue, getConfigValue } from '@/api/system'
+import { getConfigByGroup, setConfigValue, getConfigValue, getStoreList } from '@/api/system'
 import { useAuthStore } from '@/store/auth'
 
 const authStore = useAuthStore()
@@ -622,6 +623,7 @@ const CART_COLUMN_DEFS = [
   { key: 'quantity', label: '数量', width: 95, align: 'center', custom: true },
   { key: 'retailPrice', label: '零售价', width: 105, align: 'right', custom: true },
   { key: 'amount', label: '金额', width: 85, align: 'right', custom: true },
+  { key: 'stock', label: '库存', prop: 'stock', width: 60, align: 'center' },
   { key: 'medicalInsurance', label: '医保', prop: 'medicalInsurance', width: 55, align: 'center', custom: true },
 ]
 
@@ -724,15 +726,18 @@ const printConfigVisible = ref(false)
 const enablePrint = ref(false)
 const receiptPaperWidth = ref('58')
 const receiptShopName = ref('')
-const receiptFooter = ref('感谢您的光临！\n如有问题请保留此小票')
+const receiptFooter = ref('感谢您的光临！\n如有问题请保留此小票\n药品为特殊商品，无质量问题概不退换')
 const companyName = ref('')
 const tenantName = ref('')
+const storeAddress = ref('')
+const storePhone = ref('')
+const effectiveStoreId = ref(null)  // 实际有效的门店ID
 
 // 小票字段默认配置
 const DEFAULT_RECEIPT_FIELDS = {
   header: { shopName: true, tenantName: true, subtitle: true },
   orderInfo: { orderNo: true, dateTime: true, cashier: true },
-  memberInfo: { memberName: true, memberPhone: true },
+  memberInfo: { memberName: true, memberPhone: true, memberPoints: true },
   itemDetail: { drugName: true, specification: true, batchNo: true, manufacturer: true, unitPrice: true },
   summary: { itemCount: true, totalAmount: true, memberDiscount: true, wholeDiscount: true, manualDiscount: true, payMethod: true, cashInfo: true },
   footer: { footerText: true }
@@ -742,7 +747,7 @@ const DEFAULT_RECEIPT_FIELDS = {
 const RECEIPT_FIELD_LABELS = {
   header: { label: '头部信息', fields: { shopName: '店名', tenantName: '租户名称', subtitle: '副标题' } },
   orderInfo: { label: '订单信息', fields: { orderNo: '单号', dateTime: '日期时间', cashier: '收银员' } },
-  memberInfo: { label: '会员信息', fields: { memberName: '会员名称', memberPhone: '会员电话' } },
+  memberInfo: { label: '会员信息', fields: { memberName: '会员名称', memberPhone: '会员电话', memberPoints: '会员积分' } },
   itemDetail: { label: '商品明细列', fields: { drugName: '商品名', specification: '规格', batchNo: '批号', manufacturer: '生产厂家', unitPrice: '单价' } },
   summary: { label: '汇总区域', fields: { itemCount: '商品数量', totalAmount: '商品金额', memberDiscount: '会员价优惠', wholeDiscount: '整单折扣', manualDiscount: '手动优惠', payMethod: '支付方式', cashInfo: '现金/找零' } },
   footer: { label: '页脚', fields: { footerText: '页脚文本' } }
@@ -1391,6 +1396,19 @@ const loadReceiptConfig = async () => {
     } catch (e) { /* ignore */ }
     // 获取租户名称
     tenantName.value = authStore.user?.tenantName || ''
+    // 获取门店地址和电话，同时确定有效的门店ID
+    try {
+      const storeRes = await getStoreList()
+      if (storeRes.code === 200 && storeRes.data?.length > 0) {
+        const stores = storeRes.data
+        storeAddress.value = stores[0].address || ''
+        storePhone.value = stores[0].phone || ''
+        // 优先用户所属门店，若不在列表中则取第一个可用门店
+        const userStoreId = authStore.user?.storeId
+        const matched = userStoreId ? stores.find(s => s.id === userStoreId) : null
+        effectiveStoreId.value = matched ? matched.id : stores[0].id
+      }
+    } catch (e) { /* ignore */ }
   } catch (error) {
     console.warn('加载打印配置失败', error)
   }
@@ -1417,7 +1435,7 @@ const saveReceiptConfig = async () => {
 const resetReceiptConfig = () => {
   receiptPaperWidth.value = '58'
   receiptShopName.value = ''
-  receiptFooter.value = '感谢您的光临！\n如有问题请保留此小票'
+  receiptFooter.value = '感谢您的光临！\n如有问题请保留此小票\n药品为特殊商品，无质量问题概不退换'
   receiptFields.value = JSON.parse(JSON.stringify(DEFAULT_RECEIPT_FIELDS))
 }
 
@@ -1434,13 +1452,16 @@ const buildReceiptData = (orderNo) => {
   return {
     shopName,
     tenantName: tenantName.value || '',
+    storeAddress: storeAddress.value || '',
+    storePhone: storePhone.value || '',
     subtitle: '销售小票',
     orderNo: orderNo || '-',
     dateTime: dateStr,
     cashierName,
     member: currentMember.value ? {
       name: currentMember.value.name,
-      phone: currentMember.value.phone
+      phone: currentMember.value.phone,
+      points: currentMember.value.points || 0
     } : null,
     items: normalCartItems.value.map(item => {
       const ep = getEffectivePrice(item)
@@ -1466,7 +1487,7 @@ const buildReceiptData = (orderNo) => {
     cashReceived: cashReceived.value,
     changeAmount: changeAmount.value,
     payAmount: payAmount.value.toFixed(2),
-    footerText: receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票'
+    footerText: receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票\n药品为特殊商品，无质量问题概不退换'
   }
 }
 
@@ -1478,7 +1499,7 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
   const baseFontSize = is58 ? '11px' : '12px'
   const shopNameSize = is58 ? '14px' : '16px'
   const tenantNameSize = is58 ? '11px' : '12px'
-  const totalFontSize = is58 ? '15px' : '18px'
+  const totalFontSize = is58 ? '18px' : '22px'
   const mfgMaxLen = is58 ? 12 : 20
 
   // -- 头部 --
@@ -1486,8 +1507,14 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
   if (fields.header?.shopName) {
     headerHtml += `<div class="shop-name" style="font-size:${shopNameSize};">${data.shopName}</div>`
   }
-  if (fields.header?.tenantName && data.tenantName && data.tenantName !== data.shopName) {
+  if (fields.header?.tenantName && data.tenantName && data.tenantName !== data.shopName && !data.shopName.includes(data.tenantName) && !data.tenantName.includes(data.shopName)) {
     headerHtml += `<div style="font-size:${tenantNameSize};color:#444;margin-top:2px;">${data.tenantName}</div>`
+  }
+  if (data.storeAddress) {
+    headerHtml += `<div style="font-size:${is58 ? '10px' : '11px'};color:#333;margin-top:2px;">地址：${data.storeAddress}</div>`
+  }
+  if (data.storePhone) {
+    headerHtml += `<div style="font-size:${is58 ? '10px' : '11px'};color:#333;margin-top:1px;">电话：${data.storePhone}</div>`
   }
 
   // -- 订单信息 --
@@ -1510,6 +1537,9 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
     if (fields.memberInfo?.memberPhone) parts.push(data.member.phone)
     if (parts.length > 0) {
       memberInfoHtml = `<div class="info-row"><span>会员:</span><span>${parts.join(' ')}</span></div>`
+    }
+    if (fields.memberInfo?.memberPoints !== false) {
+      memberInfoHtml += `<div class="info-row"><span>积分余额:</span><span>${data.member.points} 分</span></div>`
     }
   }
 
@@ -1578,7 +1608,7 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
     summaryHtml += `<div class="total-row"><span>找零:</span><span>¥${data.changeAmount.toFixed(2)}</span></div>`
   }
   // 实付金额始终显示
-  summaryHtml += `<div class="total-row total-amount"><span>实付金额:</span><span style="color:#e6500a;">¥${data.payAmount}</span></div>`
+  summaryHtml += `<div class="total-row total-amount"><span>实付金额:</span><span style="color:#000;font-weight:900;">¥${data.payAmount}</span></div>`
 
   // -- 页脚 --
   let footerHtml = ''
@@ -1629,24 +1659,38 @@ const generateReceiptHtml = (data, fields, paperWidth) => {
 
 // 第三层：通过隐藏 iframe 执行打印（不打开新窗口）
 const printViaIframe = (html) => {
+  // 清理上一次遗留的打印 iframe，避免空白页
+  document.querySelectorAll('iframe[data-print-frame]').forEach(el => {
+    if (el.parentNode) el.parentNode.removeChild(el)
+  })
+
   const iframe = document.createElement('iframe')
-  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:0;height:0;border:none;'
+  iframe.setAttribute('data-print-frame', '1')
+  iframe.style.cssText = 'position:fixed;left:-9999px;top:-9999px;width:80mm;height:1px;border:none;visibility:hidden;'
   document.body.appendChild(iframe)
+
+  iframe.onload = () => {
+    setTimeout(() => {
+      try {
+        iframe.contentWindow.focus()
+        iframe.contentWindow.print()
+      } catch (e) { /* ignore */ }
+    }, 100)
+  }
+
+  iframe.contentWindow.onafterprint = () => {
+    if (iframe.parentNode) document.body.removeChild(iframe)
+  }
+
   const doc = iframe.contentDocument || iframe.contentWindow.document
   doc.open()
   doc.write(html)
   doc.close()
-  iframe.contentWindow.onafterprint = () => {
-    document.body.removeChild(iframe)
-  }
-  setTimeout(() => {
-    iframe.contentWindow.focus()
-    iframe.contentWindow.print()
-  }, 150)
-  // 兜底：5秒后自动移除 iframe
+
+  // 兜底：3秒后自动移除 iframe
   setTimeout(() => {
     if (iframe.parentNode) document.body.removeChild(iframe)
-  }, 5000)
+  }, 3000)
 }
 
 const printReceipt = (orderNo) => {
@@ -1666,10 +1710,12 @@ const buildHerbReceiptData = (orderNo) => {
 
   const items = herbCartItems.value.map((item) => {
     const ep = getEffectivePrice(item)
+    const totalGram = Math.round(item.dosePerGram * dc * 10) / 10
     return {
       name: item.genericName || item.tradeName,
       dosePerGram: item.dosePerGram,
-      pricePerGram: ep,
+      totalGram,
+      unitPrice: ep,
       amount: (item.dosePerGram * dc * ep).toFixed(2)
     }
   })
@@ -1684,88 +1730,145 @@ const buildHerbReceiptData = (orderNo) => {
   return {
     shopName,
     tenantName: tenantName.value || '',
+    storeAddress: storeAddress.value || '',
+    storePhone: storePhone.value || '',
     subtitle: '中药处方笺',
     orderNo: orderNo || '-',
     dateTime: dateStr,
     cashierName,
     member: currentMember.value
-      ? { name: currentMember.value.name, phone: currentMember.value.phone }
+      ? { name: currentMember.value.name, phone: currentMember.value.phone, points: currentMember.value.points || 0 }
       : null,
     doseCount: dc,
     items,
     perDoseTotalWeight: Math.round(perDoseTotalWeight * 10) / 10,
     totalWeight: Math.round(totalWeight * 10) / 10,
     herbTotal: herbTotal.toFixed(2),
-    footerText: receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票'
+    payAmount: payAmount.value.toFixed(2),
+    paymentLabel: getPaymentLabel(paymentMethod.value),
+    paymentMethod: paymentMethod.value,
+    cashReceived: cashReceived.value,
+    changeAmount: changeAmount.value,
+    discountAmount: discountAmount.value,
+    footerText: receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票\n药品为特殊商品，无质量问题概不退换'
   }
 }
 
 const generateHerbReceiptHtml = (data, paperWidth) => {
-  const width = paperWidth === '80' ? '76mm' : '56mm'
-  const isWide = paperWidth === '80'
+  const is58 = paperWidth === '58'
+  const bodyWidth = is58 ? '58mm' : '80mm'
+  const bodyPadding = is58 ? '3mm' : '5mm'
+  const baseFontSize = is58 ? '12px' : '13px'
+  const shopNameSize = is58 ? '14px' : '16px'
+  const tenantNameSize = is58 ? '11px' : '12px'
+  const totalFontSize = is58 ? '16px' : '20px'
 
-  let memberHtml = ''
-  if (data.member) {
-    memberHtml = `<tr><td style="color:#555;">会员:</td><td>${data.member.name} ${data.member.phone || ''}</td></tr>`
+  // 表头 — 与普通小票一致
+  const fields = receiptFields.value
+  let headerHtml = ''
+  if (fields.header?.shopName !== false) {
+    headerHtml += `<div class="shop-name" style="font-size:${shopNameSize};">${data.shopName}</div>`
+  }
+  if (fields.header?.tenantName !== false && data.tenantName && data.tenantName !== data.shopName && !data.shopName.includes(data.tenantName) && !data.tenantName.includes(data.shopName)) {
+    headerHtml += `<div style="font-size:${tenantNameSize};color:#444;margin-top:2px;">${data.tenantName}</div>`
+  }
+  if (data.storeAddress) {
+    headerHtml += `<div style="font-size:${is58 ? '10px' : '11px'};color:#333;margin-top:2px;">地址：${data.storeAddress}</div>`
+  }
+  if (data.storePhone) {
+    headerHtml += `<div style="font-size:${is58 ? '10px' : '11px'};color:#333;margin-top:1px;">电话：${data.storePhone}</div>`
+  }
+  headerHtml += `<div style="font-size:${is58 ? '14px' : '16px'};font-weight:bold;margin-top:4px;">中药处方笺</div>`
+
+  // 订单信息 — 与普通小票一致的 flex 布局
+  let orderInfoHtml = ''
+  if (fields.orderInfo?.orderNo !== false) {
+    orderInfoHtml += `<div class="info-row"><span>单号:</span><span>${data.orderNo}</span></div>`
+  }
+  if (fields.orderInfo?.dateTime !== false) {
+    orderInfoHtml += `<div class="info-row"><span>时间:</span><span>${data.dateTime}</span></div>`
+  }
+  if (fields.orderInfo?.cashier !== false) {
+    orderInfoHtml += `<div class="info-row"><span>收银员:</span><span>${data.cashierName}</span></div>`
   }
 
+  // 会员信息 — 与普通小票一致
+  let memberInfoHtml = ''
+  if (data.member) {
+    const parts = []
+    if (fields.memberInfo?.memberName !== false) parts.push(data.member.name)
+    if (fields.memberInfo?.memberPhone !== false) parts.push(data.member.phone)
+    if (parts.length > 0) {
+      memberInfoHtml += `<div class="info-row"><span>会员:</span><span>${parts.join(' ')}</span></div>`
+    }
+    if (fields.memberInfo?.memberPoints !== false) {
+      memberInfoHtml += `<div class="info-row"><span>积分余额:</span><span>${data.member.points} 分</span></div>`
+    }
+  }
+
+  // 明细列：药名、克/剂、总重(g)、单价、小计
   const itemsHtml = data.items
     .map(
       (item) => `
     <tr>
-      <td style="padding:4px 0;">${item.name}</td>
-      <td style="text-align:right;padding:4px 0;">${item.dosePerGram}g</td>
-      <td style="text-align:right;padding:4px 0;">¥${item.amount}</td>
+      <td style="padding:3px 2px;">${item.name}</td>
+      <td style="text-align:right;padding:3px 2px;">${item.dosePerGram}</td>
+      <td style="text-align:right;padding:3px 2px;">${item.totalGram}</td>
+      <td style="text-align:right;padding:3px 2px;">${item.unitPrice.toFixed(2)}</td>
+      <td style="text-align:right;padding:3px 2px;">${item.amount}</td>
     </tr>`
     )
     .join('')
 
+  // 合计区
+  let summaryHtml = ''
+  summaryHtml += `<div class="sum-row"><span>每剂总重:</span><span>${data.perDoseTotalWeight}g</span></div>`
+  summaryHtml += `<div class="sum-row"><span>${data.doseCount}副总重:</span><span>${data.totalWeight}g</span></div>`
+  summaryHtml += `<div class="sum-row"><span>商品金额:</span><span>¥${data.herbTotal}</span></div>`
+  if (data.discountAmount > 0) {
+    summaryHtml += `<div class="sum-row"><span>优惠:</span><span>-¥${data.discountAmount.toFixed(2)}</span></div>`
+  }
+  summaryHtml += `<div class="sum-row"><span>支付方式:</span><span>${data.paymentLabel}</span></div>`
+  if (data.paymentMethod === 'CASH' && data.cashReceived > 0) {
+    summaryHtml += `<div class="sum-row"><span>收取现金:</span><span>¥${data.cashReceived.toFixed(2)}</span></div>`
+    summaryHtml += `<div class="sum-row"><span>找零:</span><span>¥${data.changeAmount.toFixed(2)}</span></div>`
+  }
+  summaryHtml += `<div class="sum-row total-amount"><span>实付金额:</span><span>¥${data.payAmount}</span></div>`
+
   return `<!DOCTYPE html><html><head><meta charset="utf-8">
 <style>
-  @page { size: ${width} auto; margin: 2mm; }
-  body { font-family: '微软雅黑','SimHei',sans-serif; font-size: ${isWide ? '13px' : '12px'}; color: #222; margin: 0; padding: 4mm; width: ${width}; box-sizing: border-box; }
-  .header { text-align: center; margin-bottom: 6px; }
-  .shop-name { font-size: ${isWide ? '18px' : '16px'}; font-weight: 700; }
-  .subtitle { font-size: ${isWide ? '15px' : '13px'}; font-weight: 600; color: #2e7d32; margin-top: 2px; }
-  .divider { border: none; border-top: 1px dashed #999; margin: 6px 0; }
-  .info-table { width: 100%; font-size: ${isWide ? '12px' : '11px'}; }
-  .info-table td { padding: 2px 0; }
-  .dose-label { text-align: center; font-size: ${isWide ? '16px' : '14px'}; font-weight: 700; color: #2e7d32; padding: 6px 0; }
-  .items-table { width: 100%; border-collapse: collapse; font-size: ${isWide ? '12px' : '11px'}; }
-  .items-table th { border-bottom: 1px solid #999; padding: 4px 0; text-align: left; font-weight: 600; }
-  .items-table th:nth-child(2), .items-table th:nth-child(3) { text-align: right; }
-  .summary { font-size: ${isWide ? '12px' : '11px'}; margin-top: 4px; }
-  .summary td { padding: 2px 0; }
-  .total-line { font-size: ${isWide ? '15px' : '13px'}; font-weight: 700; color: #d84315; }
-  .footer { text-align: center; font-size: ${isWide ? '11px' : '10px'}; color: #888; margin-top: 8px; white-space: pre-line; }
+  @page { size: ${bodyWidth} auto; margin: 0mm; }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Microsoft YaHei','SimHei',sans-serif; font-size: ${baseFontSize}; color: #000; margin: 0 auto; padding: ${bodyPadding}; width: 100%; max-width: ${bodyWidth}; -webkit-print-color-adjust: exact; }
+  .header { text-align: center; margin-bottom: 10px; }
+  .shop-name { font-weight: bold; }
+  .divider { border-top: 1px dashed #000; margin: 8px 0; }
+  .info-row { display: flex; justify-content: space-between; margin: 3px 0; }
+  .dose-label { text-align: center; font-size: ${is58 ? '15px' : '17px'}; font-weight: 900; padding: 6px 0; }
+  .items-table { width: 100%; border-collapse: collapse; font-size: ${is58 ? '11px' : '12px'}; }
+  .items-table th, .items-table td { padding: 3px 2px; }
+  .items-table th { border-bottom: 1px solid #000; text-align: left; font-weight: 700; }
+  .items-table th:nth-child(n+2), .items-table td:nth-child(n+2) { text-align: right; }
+  .sum-row { display: flex; justify-content: space-between; margin: 3px 0; font-size: ${baseFontSize}; }
+  .total-amount { font-size: ${totalFontSize}; font-weight: 900; }
+  .footer { text-align: center; margin-top: 15px; font-size: ${is58 ? '11px' : '12px'}; color: #000; }
+  .footer p { margin-top: 3px; }
+  @media print { body { width: 100%; max-width: none; margin: 0; padding: ${bodyPadding}; } }
 </style></head><body>
-<div class="header">
-  <div class="shop-name">${data.shopName}</div>
-  ${data.tenantName ? `<div style="font-size:11px;color:#666;">${data.tenantName}</div>` : ''}
-  <div class="subtitle">${data.subtitle}</div>
-</div>
-<hr class="divider">
-<table class="info-table">
-  <tr><td style="color:#555;">单号:</td><td>${data.orderNo}</td></tr>
-  <tr><td style="color:#555;">时间:</td><td>${data.dateTime}</td></tr>
-  <tr><td style="color:#555;">收银员:</td><td>${data.cashierName}</td></tr>
-  ${memberHtml}
-</table>
-<hr class="divider">
+<div class="header">${headerHtml}</div>
+<div class="divider"></div>
+${orderInfoHtml}${memberInfoHtml}
+<div class="divider"></div>
 <div class="dose-label">${data.doseCount} 副</div>
-<hr class="divider">
+<div class="divider"></div>
 <table class="items-table">
-  <tr><th>药名</th><th>克/剂</th><th>小计</th></tr>
+  <tr><th>药名</th><th>克/剂</th><th>总重</th><th>单价</th><th>小计</th></tr>
   ${itemsHtml}
 </table>
-<hr class="divider">
-<table class="summary">
-  <tr><td>每剂总重:</td><td style="text-align:right;">${data.perDoseTotalWeight}g</td></tr>
-  <tr><td>${data.doseCount}副总重:</td><td style="text-align:right;">${data.totalWeight}g</td></tr>
-  <tr><td class="total-line">合计金额:</td><td style="text-align:right;" class="total-line">¥${data.herbTotal}</td></tr>
-</table>
-<hr class="divider">
-<div class="footer">${data.footerText.replace(/\n/g, '<br>')}</div>
+<div class="divider"></div>
+${summaryHtml}
+<div class="divider"></div>
+<div class="footer">${data.footerText.split(/\\n|\n/).map(l => '<p>' + l + '</p>').join('')}</div>
 </body></html>`
 }
 
@@ -1826,7 +1929,7 @@ const handleCheckout = async () => {
           memberPriceSaving.value + wholeOrderDiscountSaving.value + discountAmount.value,
         payAmount: payAmount.value,
         payMethod: paymentMethod.value,
-        storeId: authStore.user?.storeId || 1,
+        storeId: effectiveStoreId.value || authStore.user?.storeId || 1,
         herbDoseCount: herbCartItems.value.length > 0 ? herbDoseCount.value : null,
         remark:
           rnDrugs.length > 0
@@ -1871,12 +1974,23 @@ const handleCheckout = async () => {
     if (res.code === 200) {
       const orderNo = res.data?.orderNo || ''
       
-      // 打印小票（始终自动打印）
+      // 打印小票（始终自动打印）— 先生成 HTML 再延迟打印，避免清空购物车后数据丢失
+      let receiptHtml = null
+      let herbReceiptHtml = null
       if (normalCartItems.value.length > 0) {
-        printReceipt(orderNo)
+        const data = buildReceiptData(orderNo)
+        receiptHtml = generateReceiptHtml(data, receiptFields.value, receiptPaperWidth.value)
       }
       if (herbCartItems.value.length > 0) {
-        setTimeout(() => printHerbReceipt(orderNo), 300)
+        const data = buildHerbReceiptData(orderNo)
+        herbReceiptHtml = generateHerbReceiptHtml(data, receiptPaperWidth.value)
+      }
+
+      if (receiptHtml) {
+        printViaIframe(receiptHtml)
+      }
+      if (herbReceiptHtml) {
+        setTimeout(() => printViaIframe(herbReceiptHtml), 500)
       }
       
       ElMessage.success(`结算成功，订单号: ${orderNo}`)
@@ -2001,16 +2115,11 @@ onBeforeRouteLeave((to, from, next) => {
         confirmButtonText: '挂单',
         cancelButtonText: '放弃',
         type: 'warning',
-        distinguishCancelAndClose: true,
       }
     ).then(() => {
-      handleHangUp().then(() => next()).catch(() => next(false))
-    }).catch((action) => {
-      if (action === 'cancel') {
-        next()
-      } else {
-        next(false)
-      }
+      handleHangUp().then(() => next()).catch(() => next())
+    }).catch(() => {
+      next()
     })
   } else {
     next()

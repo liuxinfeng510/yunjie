@@ -103,6 +103,7 @@
             <el-menu-item index="/sale/promotion">促销管理</el-menu-item>
             <el-menu-item index="/sale/combination">组合推荐</el-menu-item>
             <el-menu-item index="/sale/reconciliation">日终对账</el-menu-item>
+            <el-menu-item index="/sale/profit">利润查询</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="member-menu">

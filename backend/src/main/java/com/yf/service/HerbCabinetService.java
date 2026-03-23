@@ -201,18 +201,20 @@ public class HerbCabinetService {
     public boolean save(HerbCabinet cabinet) {
         herbCabinetMapper.insert(cabinet);
         
+        int colOffset = (cabinet.getColumnStartNumber() != null ? cabinet.getColumnStartNumber() : 1) - 1;
         Map<Integer, Integer> rowConfig = parseRowCellConfig(cabinet.getRowCellConfig(), cabinet.getRowCount());
         
         for (int row = 1; row <= cabinet.getRowCount(); row++) {
             int subCount = rowConfig.getOrDefault(row, 1);
             for (int col = 1; col <= cabinet.getColumnCount(); col++) {
+                int displayCol = col + colOffset;
                 for (int sub = 1; sub <= subCount; sub++) {
                     HerbCabinetCell cell = new HerbCabinetCell();
                     cell.setCabinetId(cabinet.getId());
                     cell.setRowNum(row);
                     cell.setColumnNum(col);
                     cell.setSubIndex(sub);
-                    cell.setLabel(row + "-" + col + "-" + subIndexToLetter(sub));
+                    cell.setLabel(row + "-" + displayCol + "-" + subIndexToLetter(sub));
                     cell.setStatus("active");
                     herbCabinetCellMapper.insert(cell);
                 }
@@ -227,6 +229,8 @@ public class HerbCabinetService {
     @Transactional(rollbackFor = Exception.class)
     public boolean updateById(HerbCabinet cabinet) {
         herbCabinetMapper.updateById(cabinet);
+        
+        int colOffset = (cabinet.getColumnStartNumber() != null ? cabinet.getColumnStartNumber() : 1) - 1;
         
         // 查询现有cells
         LambdaQueryWrapper<HerbCabinetCell> wrapper = new LambdaQueryWrapper<>();
@@ -266,7 +270,8 @@ public class HerbCabinetService {
             int row = Integer.parseInt(parts[0]);
             int col = Integer.parseInt(parts[1]);
             int sub = Integer.parseInt(parts[2]);
-            String newLabel = row + "-" + col + "-" + subIndexToLetter(sub);
+            int displayCol = col + colOffset;
+            String newLabel = row + "-" + displayCol + "-" + subIndexToLetter(sub);
             
             HerbCabinetCell existing = existingMap.get(key);
             if (existing == null) {
@@ -290,10 +295,36 @@ public class HerbCabinetService {
     }
     
     /**
-     * 删除药柜及其所有格位
+     * 检查药柜是否有已绑定药材的格位
+     */
+    public boolean hasBoundCells(Long cabinetId) {
+        LambdaQueryWrapper<HerbCabinetCell> wrapper = new LambdaQueryWrapper<>();
+        wrapper.eq(HerbCabinetCell::getCabinetId, cabinetId)
+               .isNotNull(HerbCabinetCell::getHerbId);
+        return herbCabinetCellMapper.selectCount(wrapper) > 0;
+    }
+    
+    /**
+     * 查询所有有绑定药材的药柜ID集合
+     */
+    public Set<Long> getBoundCabinetIds() {
+        LambdaQueryWrapper<HerbCabinetCell> wrapper = new LambdaQueryWrapper<>();
+        wrapper.isNotNull(HerbCabinetCell::getHerbId)
+               .select(HerbCabinetCell::getCabinetId);
+        List<HerbCabinetCell> cells = herbCabinetCellMapper.selectList(wrapper);
+        return cells.stream()
+                .map(HerbCabinetCell::getCabinetId)
+                .collect(Collectors.toSet());
+    }
+    
+    /**
+     * 删除药柜及其所有格位（已绑定药材时禁止删除）
      */
     @Transactional(rollbackFor = Exception.class)
     public boolean deleteById(Long id) {
+        if (hasBoundCells(id)) {
+            throw new RuntimeException("该药柜已有格位绑定药材，无法删除，只能编辑");
+        }
         // 先删除所有关联的cells
         LambdaQueryWrapper<HerbCabinetCell> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(HerbCabinetCell::getCabinetId, id);

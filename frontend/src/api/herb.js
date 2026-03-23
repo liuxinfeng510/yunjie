@@ -32,6 +32,9 @@ export function updateCabinet(id, data) {
 export function deleteCabinet(id) {
   return request.delete(`/herb-cabinet/${id}`)
 }
+export function getBoundCabinetIds() {
+  return request.get('/herb-cabinet/bound-ids')
+}
 export function assignCabinetCell(cellId, data) {
   return request.put(`/herb-cabinet/cell/${cellId}/assign`, data)
 }

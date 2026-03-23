@@ -33,6 +33,11 @@ public class HerbCabinet extends BaseEntity {
     private Integer columnCount;
     
     /**
+     * 起始列号(默认1，多柜连续编号时设为上一柜列数+1)
+     */
+    private Integer columnStartNumber;
+    
+    /**
      * 位置
      */
     private String location;

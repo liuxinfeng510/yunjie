@@ -39,7 +39,8 @@ public class DrugBarcodeService {
      */
     public DrugBarcode findByBarcode(String barcode) {
         LambdaQueryWrapper<DrugBarcode> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(DrugBarcode::getBarcode, barcode);
+        wrapper.eq(DrugBarcode::getBarcode, barcode)
+               .last("LIMIT 1");
         return barcodeMapper.selectOne(wrapper);
     }
 
@@ -55,6 +56,7 @@ public class DrugBarcodeService {
         if (excludeDrugId != null) {
             wrapper.ne(DrugBarcode::getDrugId, excludeDrugId);
         }
+        wrapper.last("LIMIT 1");
         DrugBarcode existing = barcodeMapper.selectOne(wrapper);
         
         if (existing == null) {

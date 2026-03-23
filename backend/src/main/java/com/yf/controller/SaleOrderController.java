@@ -85,6 +85,8 @@ public class SaleOrderController {
         result.put("createTime", saleOrder.getCreateTime());
         result.put("status", saleOrder.getStatus());
         result.put("remark", saleOrder.getRemark());
+        result.put("herbDoseCount", saleOrder.getHerbDoseCount());
+        result.put("storeId", saleOrder.getStoreId());
         
         return ApiResponse.success(result);
     }
@@ -114,5 +116,20 @@ public class SaleOrderController {
     public static class SaleOrderRequest {
         private SaleOrder saleOrder;
         private List<SaleOrderDetail> details;
+    }
+
+    /**
+     * 利润报表查询
+     */
+    @GetMapping("/profit-report")
+    public ApiResponse<Map<String, Object>> profitReport(
+            @RequestParam String startDate,
+            @RequestParam String endDate,
+            @RequestParam(required = false) Long storeId,
+            @RequestParam(required = false, defaultValue = "day") String groupBy,
+            @RequestParam(required = false, defaultValue = "1") int current,
+            @RequestParam(required = false, defaultValue = "31") int size) {
+        Map<String, Object> result = saleOrderService.profitReport(startDate, endDate, storeId, groupBy, current, size);
+        return ApiResponse.success(result);
     }
 }

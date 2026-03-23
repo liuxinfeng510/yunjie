@@ -184,7 +184,8 @@ public class MemberService {
             return null;
         }
         LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Member::getWechatOpenid, openid);
+        wrapper.eq(Member::getWechatOpenid, openid)
+               .last("LIMIT 1");
         return memberMapper.selectOne(wrapper);
     }
 

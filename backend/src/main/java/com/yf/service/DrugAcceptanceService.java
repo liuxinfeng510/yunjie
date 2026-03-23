@@ -83,7 +83,8 @@ public class DrugAcceptanceService {
      */
     public DrugAcceptance getByStockInId(Long stockInId) {
         LambdaQueryWrapper<DrugAcceptance> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(DrugAcceptance::getStockInId, stockInId);
+        wrapper.eq(DrugAcceptance::getStockInId, stockInId)
+               .last("LIMIT 1");
         return drugAcceptanceMapper.selectOne(wrapper);
     }
 }

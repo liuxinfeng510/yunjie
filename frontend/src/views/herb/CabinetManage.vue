@@ -28,6 +28,7 @@
                 <div class="cabinet-name">{{ cabinet.name }}</div>
                 <div class="cabinet-info">
                   <span>{{ cabinet.rowCount }}行 × {{ cabinet.columnCount }}列</span>
+                  <span v-if="cabinet.columnStartNumber > 1">列号: {{ cabinet.columnStartNumber }}~{{ cabinet.columnStartNumber + cabinet.columnCount - 1 }}</span>
                   <span>格位: {{ getCabinetTotalCells(cabinet) }}</span>
                 </div>
                 <div class="cabinet-actions">
@@ -40,6 +41,7 @@
                     编辑
                   </el-button>
                   <el-button 
+                    v-if="!boundCabinetIds.has(cabinet.id)"
                     type="danger" 
                     link 
                     size="small" 
@@ -94,7 +96,7 @@
                     :key="col"
                     class="drawer-box"
                   >
-                    <div class="drawer-label">{{ row }}-{{ col }}</div>
+                    <div class="drawer-label">{{ row }}-{{ col + (currentCabinet.columnStartNumber || 1) - 1 }}</div>
                     <div
                       class="drawer-cells"
                       :class="'cells-' + getDrawerSubCount(row, col)"
@@ -237,6 +239,17 @@
             :max="20" 
             style="width: 100%"
           />
+        </el-form-item>
+        <el-form-item label="起始列号">
+          <el-input-number 
+            v-model="editCabinetForm.columnStartNumber" 
+            :min="1" 
+            :max="999" 
+            style="width: 200px"
+          />
+          <span style="margin-left: 12px; font-size: 12px; color: #909399">
+            多柜连续编号时，设为上一柜末列号+1
+          </span>
         </el-form-item>
         
         <!-- 每行子格数配置 -->
@@ -455,7 +468,8 @@ import {
   getHerbDrugList,
   getAssignedHerbIds,
   downloadCabinetImportTemplate,
-  batchImportCabinetAssignment
+  batchImportCabinetAssignment,
+  getBoundCabinetIds
 } from '@/api/herb'
 
 // 药柜数据
@@ -463,6 +477,7 @@ const cabinetLoading = ref(false)
 const cabinetList = ref([])
 const selectedCabinetId = ref(null)
 const currentCabinet = ref(null)
+const boundCabinetIds = ref(new Set())
 
 // 格子数据
 const cellLoading = ref(false)
@@ -516,6 +531,7 @@ const editCabinetForm = reactive({
   name: '',
   rowCount: 5,
   columnCount: 8,
+  columnStartNumber: 1,
   location: '',
   status: 'ENABLED'
 })
@@ -628,6 +644,11 @@ const fetchCabinetList = async () => {
         handleCabinetClick(cabinetList.value[0])
       }
     }
+    // 加载已绑定药柜ID
+    const boundRes = await getBoundCabinetIds()
+    if (boundRes.code === 200) {
+      boundCabinetIds.value = new Set(boundRes.data || [])
+    }
   } catch (error) {
     ElMessage.error('获取药柜列表失败')
   } finally {
@@ -669,6 +690,7 @@ const handleAddCabinet = () => {
     name: '',
     rowCount: 5,
     columnCount: 8,
+    columnStartNumber: 1,
     location: '',
     status: 'ENABLED'
   })
@@ -690,6 +712,7 @@ const handleEditCabinet = (cabinet) => {
     name: cabinet.name,
     rowCount: cabinet.rowCount,
     columnCount: cabinet.columnCount,
+    columnStartNumber: cabinet.columnStartNumber || 1,
     location: cabinet.location,
     status: cabinet.status
   })
@@ -1135,12 +1158,12 @@ onMounted(() => {
         margin-bottom: 4px;
 
         .row-label {
-          width: 36px;
+          width: 42px;
           display: flex;
           align-items: center;
           justify-content: center;
-          font-size: 11px;
-          color: #909399;
+          font-size: 13px;
+          color: #606266;
           font-weight: 600;
           flex-shrink: 0;
         }
@@ -1162,19 +1185,19 @@ onMounted(() => {
 
             .drawer-label {
               position: absolute;
-              top: 1px;
-              left: 3px;
-              font-size: 9px;
-              color: #c0c4cc;
-              font-weight: 600;
+              top: 2px;
+              left: 4px;
+              font-size: 12px;
+              color: #606266;
+              font-weight: 700;
             }
 
             .drawer-cells {
               display: flex;
               flex-wrap: wrap;
               gap: 2px;
-              padding-top: 12px;
-              min-height: 30px;
+              padding-top: 16px;
+              min-height: 36px;
 
               &.cells-1 {
                 .sub-cell { width: 100%; }
@@ -1191,9 +1214,9 @@ onMounted(() => {
               }
 
               .sub-cell {
-                min-height: 24px;
-                padding: 1px 2px;
-                border: 1px solid #e4e7ed;
+                min-height: 30px;
+                padding: 2px 3px;
+                border: 1px solid #dcdfe6;
                 border-radius: 2px;
                 cursor: pointer;
                 display: flex;
@@ -1202,7 +1225,7 @@ onMounted(() => {
                 justify-content: center;
                 text-align: center;
                 transition: all 0.2s;
-                font-size: 10px;
+                font-size: 12px;
 
                 &:hover {
                   box-shadow: 0 1px 4px rgba(0,0,0,0.1);
@@ -1210,7 +1233,7 @@ onMounted(() => {
 
                 &.empty {
                   background-color: #fafafa;
-                  border-color: #e4e7ed;
+                  border-color: #dcdfe6;
                 }
 
                 &.normal {
@@ -1224,17 +1247,17 @@ onMounted(() => {
                 }
 
                 .sub-label {
-                  font-size: 9px;
+                  font-size: 12px;
                   font-weight: 700;
-                  color: #909399;
-                  line-height: 1;
+                  color: #303133;
+                  line-height: 1.2;
                 }
 
                 .cell-herb {
                   font-weight: 600;
                   color: #303133;
-                  font-size: 10px;
-                  line-height: 1.1;
+                  font-size: 12px;
+                  line-height: 1.2;
                   overflow: hidden;
                   text-overflow: ellipsis;
                   white-space: nowrap;
@@ -1242,14 +1265,14 @@ onMounted(() => {
                 }
 
                 .cell-stock {
-                  font-size: 9px;
-                  color: #606266;
-                  line-height: 1;
+                  font-size: 11px;
+                  color: #303133;
+                  line-height: 1.2;
                 }
 
                 .cell-empty {
-                  color: #c0c4cc;
-                  font-size: 9px;
+                  color: #909399;
+                  font-size: 11px;
                 }
               }
             }

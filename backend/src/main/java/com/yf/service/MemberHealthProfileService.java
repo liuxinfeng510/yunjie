@@ -37,7 +37,8 @@ public class MemberHealthProfileService {
      */
     public MemberHealthProfile getOrCreateProfile(Long memberId) {
         LambdaQueryWrapper<MemberHealthProfile> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(MemberHealthProfile::getMemberId, memberId);
+        wrapper.eq(MemberHealthProfile::getMemberId, memberId)
+               .last("LIMIT 1");
         MemberHealthProfile profile = profileMapper.selectOne(wrapper);
         
         if (profile == null) {

@@ -62,7 +62,8 @@ public class DrugCategoryService {
         wrapper.eq(DrugCategory::getName, HERB_CATEGORY_NAME)
                .eq(DrugCategory::getParentId, 0L)
                .eq(DrugCategory::getTenantId, 0L)
-               .eq(DrugCategory::getIsSystem, true);
+               .eq(DrugCategory::getIsSystem, true)
+               .last("LIMIT 1");
         DrugCategory herbRoot = drugCategoryMapper.selectOne(wrapper);
         if (herbRoot == null) return false;
         return herbRoot.getId().equals(categoryId);

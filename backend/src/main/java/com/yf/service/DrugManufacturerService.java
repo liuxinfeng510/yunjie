@@ -50,7 +50,8 @@ public class DrugManufacturerService {
         }
         // 先查找（全局查询，不带租户过滤）
         LambdaQueryWrapper<DrugManufacturer> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(DrugManufacturer::getName, name.trim());
+        wrapper.eq(DrugManufacturer::getName, name.trim())
+               .last("LIMIT 1");
         DrugManufacturer existing = manufacturerMapper.selectOne(wrapper);
         if (existing != null) {
             return existing;

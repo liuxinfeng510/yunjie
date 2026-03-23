@@ -252,7 +252,8 @@ public class DrugBatchService {
     public DrugBatch getByBatchNo(Long drugId, String batchNo) {
         LambdaQueryWrapper<DrugBatch> wrapper = new LambdaQueryWrapper<>();
         wrapper.eq(DrugBatch::getDrugId, drugId)
-               .eq(DrugBatch::getBatchNo, batchNo);
+               .eq(DrugBatch::getBatchNo, batchNo)
+               .last("LIMIT 1");
         return batchMapper.selectOne(wrapper);
     }
 

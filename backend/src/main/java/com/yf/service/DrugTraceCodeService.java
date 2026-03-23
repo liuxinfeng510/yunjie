@@ -54,7 +54,8 @@ public class DrugTraceCodeService {
      */
     public DrugTraceCode getByTraceCode(String traceCode) {
         LambdaQueryWrapper<DrugTraceCode> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(DrugTraceCode::getTraceCode, traceCode);
+        wrapper.eq(DrugTraceCode::getTraceCode, traceCode)
+               .last("LIMIT 1");
         return traceCodeMapper.selectOne(wrapper);
     }
 

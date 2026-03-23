@@ -235,6 +235,12 @@ const routes = [
         component: () => import('@/views/sale/Reconciliation.vue'),
         meta: { title: '日终对账' }
       },
+      {
+        path: 'sale/profit',
+        name: 'ProfitReport',
+        component: () => import('@/views/sale/ProfitReport.vue'),
+        meta: { title: '利润查询' }
+      },
       // 会员管理
       {
         path: 'member',

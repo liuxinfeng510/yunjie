@@ -113,7 +113,8 @@ public class WechatAuthService {
         
         // 通过手机号查找会员
         LambdaQueryWrapper<Member> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(Member::getPhone, phone);
+        wrapper.eq(Member::getPhone, phone)
+               .last("LIMIT 1");
         Member member = memberMapper.selectOne(wrapper);
         
         if (member == null) {
@@ -186,7 +187,8 @@ public class WechatAuthService {
      */
     public WechatUser findByMemberId(Long memberId) {
         LambdaQueryWrapper<WechatUser> wrapper = new LambdaQueryWrapper<>();
-        wrapper.eq(WechatUser::getMemberId, memberId);
+        wrapper.eq(WechatUser::getMemberId, memberId)
+               .last("LIMIT 1");
         return wechatUserMapper.selectOne(wrapper);
     }
 

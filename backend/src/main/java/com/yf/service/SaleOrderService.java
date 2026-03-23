@@ -3,14 +3,8 @@ package com.yf.service;
 import cn.hutool.core.date.DateUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.yf.entity.Member;
-import com.yf.entity.SaleOrder;
-import com.yf.entity.SaleOrderDetail;
-import com.yf.entity.SysUser;
-import com.yf.mapper.MemberMapper;
-import com.yf.mapper.SaleOrderDetailMapper;
-import com.yf.mapper.SaleOrderMapper;
-import com.yf.mapper.SysUserMapper;
+import com.yf.entity.*;
+import com.yf.mapper.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -19,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -38,6 +33,8 @@ public class SaleOrderService {
     private final MemberService memberService;
     private final MemberMapper memberMapper;
     private final SysUserMapper sysUserMapper;
+    private final DrugMapper drugMapper;
+    private final DrugBatchMapper drugBatchMapper;
 
     private static final DateTimeFormatter TIME_FMT = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
@@ -227,6 +224,25 @@ public class SaleOrderService {
         // 保存明细并扣减库存
         for (SaleOrderDetail detail : details) {
             detail.setSaleOrderId(saleOrder.getId());
+            
+            // 自动填充成本价：优先从批次取，兜底从药品取
+            if (detail.getCostPrice() == null) {
+                BigDecimal costPrice = null;
+                if (detail.getBatchId() != null) {
+                    DrugBatch batch = drugBatchMapper.selectById(detail.getBatchId());
+                    if (batch != null && batch.getPurchasePrice() != null) {
+                        costPrice = batch.getPurchasePrice();
+                    }
+                }
+                if (costPrice == null && detail.getDrugId() != null) {
+                    Drug drug = drugMapper.selectById(detail.getDrugId());
+                    if (drug != null && drug.getPurchasePrice() != null) {
+                        costPrice = drug.getPurchasePrice();
+                    }
+                }
+                detail.setCostPrice(costPrice);
+            }
+            
             saleOrderDetailMapper.insert(detail);
             
             // 扣减库存
@@ -275,5 +291,171 @@ public class SaleOrderService {
         stats.put("discountAmount", totalAmount.subtract(payAmount));
         
         return stats;
+    }
+
+    /**
+     * 利润报表查询
+     */
+    public Map<String, Object> profitReport(String startDate, String endDate, Long storeId, String groupBy, int current, int size) {
+        LocalDateTime startTime = LocalDate.parse(startDate).atStartOfDay();
+        LocalDateTime endTime = LocalDate.parse(endDate).plusDays(1).atStartOfDay();
+
+        LambdaQueryWrapper<SaleOrder> wrapper = new LambdaQueryWrapper<>();
+        wrapper.ge(SaleOrder::getCreatedAt, startTime)
+               .lt(SaleOrder::getCreatedAt, endTime)
+               .eq(SaleOrder::getStatus, "已完成");
+        if (storeId != null) {
+            wrapper.eq(SaleOrder::getStoreId, storeId);
+        }
+        wrapper.orderByDesc(SaleOrder::getCreatedAt);
+        List<SaleOrder> orders = saleOrderMapper.selectList(wrapper);
+
+        if (orders.isEmpty()) {
+            Map<String, Object> emptyResult = new HashMap<>();
+            Map<String, Object> emptySummary = new HashMap<>();
+            emptySummary.put("totalSales", BigDecimal.ZERO);
+            emptySummary.put("totalCost", BigDecimal.ZERO);
+            emptySummary.put("totalProfit", BigDecimal.ZERO);
+            emptySummary.put("profitRate", BigDecimal.ZERO);
+            emptySummary.put("orderCount", 0);
+            emptyResult.put("summary", emptySummary);
+            Map<String, Object> emptyPage = new HashMap<>();
+            emptyPage.put("records", List.of());
+            emptyPage.put("total", 0);
+            emptyPage.put("current", current);
+            emptyPage.put("size", size);
+            emptyResult.put("page", emptyPage);
+            return emptyResult;
+        }
+
+        fillOrderDetails(orders);
+
+        List<Long> orderIds = orders.stream().map(SaleOrder::getId).collect(Collectors.toList());
+        LambdaQueryWrapper<SaleOrderDetail> detailWrapper = new LambdaQueryWrapper<>();
+        detailWrapper.in(SaleOrderDetail::getSaleOrderId, orderIds);
+        List<SaleOrderDetail> allDetails = saleOrderDetailMapper.selectList(detailWrapper);
+
+        // 对 costPrice 为空的历史明细，从批次/药品表补查成本价
+        Set<Long> batchIdsToLoad = new HashSet<>();
+        Set<Long> drugIdsToLoad = new HashSet<>();
+        for (SaleOrderDetail d : allDetails) {
+            if (d.getCostPrice() == null) {
+                if (d.getBatchId() != null) batchIdsToLoad.add(d.getBatchId());
+                drugIdsToLoad.add(d.getDrugId());
+            }
+        }
+        Map<Long, BigDecimal> batchPriceMap = new HashMap<>();
+        Map<Long, BigDecimal> drugPriceMap = new HashMap<>();
+        if (!batchIdsToLoad.isEmpty()) {
+            for (DrugBatch b : drugBatchMapper.selectBatchIds(new ArrayList<>(batchIdsToLoad))) {
+                if (b.getPurchasePrice() != null) batchPriceMap.put(b.getId(), b.getPurchasePrice());
+            }
+        }
+        if (!drugIdsToLoad.isEmpty()) {
+            for (Drug dr : drugMapper.selectBatchIds(new ArrayList<>(drugIdsToLoad))) {
+                if (dr.getPurchasePrice() != null) drugPriceMap.put(dr.getId(), dr.getPurchasePrice());
+            }
+        }
+
+        Map<Long, BigDecimal> orderCostMap = new HashMap<>();
+        for (SaleOrderDetail d : allDetails) {
+            BigDecimal unitCost = d.getCostPrice();
+            if (unitCost == null && d.getBatchId() != null) {
+                unitCost = batchPriceMap.get(d.getBatchId());
+            }
+            if (unitCost == null) {
+                unitCost = drugPriceMap.get(d.getDrugId());
+            }
+            BigDecimal cost = unitCost != null ? unitCost.multiply(d.getQuantity()) : BigDecimal.ZERO;
+            orderCostMap.merge(d.getSaleOrderId(), cost, BigDecimal::add);
+        }
+
+        List<Map<String, Object>> orderProfitList = new ArrayList<>();
+        BigDecimal totalSales = BigDecimal.ZERO;
+        BigDecimal totalCost = BigDecimal.ZERO;
+
+        for (SaleOrder order : orders) {
+            BigDecimal sales = order.getPayAmount() != null ? order.getPayAmount() : BigDecimal.ZERO;
+            BigDecimal cost = orderCostMap.getOrDefault(order.getId(), BigDecimal.ZERO);
+            BigDecimal profit = sales.subtract(cost);
+            BigDecimal rate = sales.compareTo(BigDecimal.ZERO) > 0
+                    ? profit.multiply(BigDecimal.valueOf(100)).divide(sales, 2, RoundingMode.HALF_UP)
+                    : BigDecimal.ZERO;
+            totalSales = totalSales.add(sales);
+            totalCost = totalCost.add(cost);
+
+            Map<String, Object> row = new HashMap<>();
+            row.put("orderId", order.getId());
+            row.put("orderNo", order.getOrderNo());
+            row.put("createdAt", order.getCreateTime());
+            row.put("cashierName", order.getCashierName());
+            row.put("memberName", order.getMemberName());
+            row.put("payMethod", order.getPaymentMethod());
+            row.put("salesAmount", sales);
+            row.put("costAmount", cost);
+            row.put("profitAmount", profit);
+            row.put("profitRate", rate);
+            row.put("date", order.getCreatedAt().toLocalDate().toString());
+            orderProfitList.add(row);
+        }
+
+        BigDecimal totalProfit = totalSales.subtract(totalCost);
+        BigDecimal totalRate = totalSales.compareTo(BigDecimal.ZERO) > 0
+                ? totalProfit.multiply(BigDecimal.valueOf(100)).divide(totalSales, 2, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("totalSales", totalSales);
+        summary.put("totalCost", totalCost);
+        summary.put("totalProfit", totalProfit);
+        summary.put("profitRate", totalRate);
+        summary.put("orderCount", orders.size());
+
+        List<Map<String, Object>> records;
+        if ("order".equals(groupBy)) {
+            records = orderProfitList;
+        } else {
+            Map<String, Map<String, Object>> dayMap = new LinkedHashMap<>();
+            for (Map<String, Object> row : orderProfitList) {
+                String date = (String) row.get("date");
+                dayMap.computeIfAbsent(date, k -> {
+                    Map<String, Object> dayRow = new HashMap<>();
+                    dayRow.put("date", k);
+                    dayRow.put("orderCount", 0);
+                    dayRow.put("salesAmount", BigDecimal.ZERO);
+                    dayRow.put("costAmount", BigDecimal.ZERO);
+                    dayRow.put("profitAmount", BigDecimal.ZERO);
+                    return dayRow;
+                });
+                Map<String, Object> dayRow = dayMap.get(date);
+                dayRow.put("orderCount", (int) dayRow.get("orderCount") + 1);
+                dayRow.put("salesAmount", ((BigDecimal) dayRow.get("salesAmount")).add((BigDecimal) row.get("salesAmount")));
+                dayRow.put("costAmount", ((BigDecimal) dayRow.get("costAmount")).add((BigDecimal) row.get("costAmount")));
+                dayRow.put("profitAmount", ((BigDecimal) dayRow.get("profitAmount")).add((BigDecimal) row.get("profitAmount")));
+            }
+            for (Map<String, Object> dayRow : dayMap.values()) {
+                BigDecimal daySales = (BigDecimal) dayRow.get("salesAmount");
+                BigDecimal dayProfit = (BigDecimal) dayRow.get("profitAmount");
+                dayRow.put("profitRate", daySales.compareTo(BigDecimal.ZERO) > 0
+                        ? dayProfit.multiply(BigDecimal.valueOf(100)).divide(daySales, 2, RoundingMode.HALF_UP)
+                        : BigDecimal.ZERO);
+            }
+            records = new ArrayList<>(dayMap.values());
+        }
+
+        int total = records.size();
+        int from = Math.min((current - 1) * size, total);
+        int to = Math.min(from + size, total);
+
+        Map<String, Object> pageData = new HashMap<>();
+        pageData.put("records", records.subList(from, to));
+        pageData.put("total", total);
+        pageData.put("current", current);
+        pageData.put("size", size);
+
+        Map<String, Object> result = new HashMap<>();
+        result.put("summary", summary);
+        result.put("page", pageData);
+        return result;
     }
 }

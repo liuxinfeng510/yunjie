@@ -157,7 +157,15 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSaleOrderPage, getSaleOrder } from '@/api/sale'
+import { getConfigByGroup, getStoreList } from '@/api/system'
 import { useTableKeyboardNav } from '@/composables/useTableKeyboardNav'
+import {
+  getPaymentLabel,
+  generateReceiptHtml,
+  generateHerbReceiptHtml,
+  printViaIframe,
+  DEFAULT_RECEIPT_FIELDS
+} from '@/utils/receipt'
 
 // 搜索表单
 const searchForm = reactive({
@@ -251,9 +259,149 @@ const showDetail = async (row) => {
   }
 }
 
+// ========== 小票打印配置 ==========
+const receiptFields = ref({ ...DEFAULT_RECEIPT_FIELDS })
+const receiptPaperWidth = ref('80')
+const receiptShopName = ref('')
+const receiptFooter = ref('')
+const tenantName = ref('')
+const storeAddress = ref('')
+const storePhone = ref('')
+let receiptConfigLoaded = false
+
+const loadReceiptConfig = async () => {
+  if (receiptConfigLoaded) return
+  try {
+    const [configRes, storeRes] = await Promise.all([
+      getConfigByGroup('sale'),
+      getStoreList()
+    ])
+    if (configRes.code === 200 && configRes.data) {
+      const configs = {}
+      configRes.data.forEach(c => { configs[c.configKey] = c.configValue })
+      receiptPaperWidth.value = configs['sale.receipt_paper_width'] || '80'
+      receiptShopName.value = configs['sale.receipt_shop_name'] || ''
+      receiptFooter.value = configs['sale.receipt_footer'] || ''
+      if (configs['sale.receipt_fields']) {
+        try {
+          receiptFields.value = JSON.parse(configs['sale.receipt_fields'])
+        } catch (e) { /* use default */ }
+      }
+    }
+    if (storeRes.code === 200 && storeRes.data?.length > 0) {
+      const store = storeRes.data[0]
+      if (!receiptShopName.value) receiptShopName.value = store.name || ''
+      tenantName.value = store.tenantName || ''
+      storeAddress.value = store.address || ''
+      storePhone.value = store.phone || ''
+    }
+    receiptConfigLoaded = true
+  } catch (e) {
+    console.warn('加载小票配置失败', e)
+  }
+}
+
 // 打印小票
-const handlePrint = () => {
-  ElMessage.success('打印功能开发中...')
+const handlePrint = async () => {
+  if (!currentOrder.value) return
+  await loadReceiptConfig()
+
+  const order = currentOrder.value
+  const allItems = order.items || []
+  const normalItems = allItems.filter(i => !i.isHerb)
+  const herbItems = allItems.filter(i => i.isHerb)
+  const shopName = receiptShopName.value || '药房'
+  const footer = receiptFooter.value || '感谢您的光临！\n如有问题请保留此小票\n药品为特殊商品，无质量问题概不退换'
+  const payMethod = order.paymentMethod || ''
+
+  // 打印普通小票
+  if (normalItems.length > 0) {
+    const data = {
+      shopName,
+      tenantName: tenantName.value,
+      storeAddress: storeAddress.value,
+      storePhone: storePhone.value,
+      subtitle: '销售小票',
+      orderNo: order.orderNo || '-',
+      dateTime: order.createTime || '-',
+      cashierName: order.cashierName || '-',
+      member: order.memberName ? { name: order.memberName, phone: '', points: 0 } : null,
+      items: normalItems.map(item => ({
+        name: item.drugName || '-',
+        specification: item.specification || '-',
+        batchNo: item.batchNo || '-',
+        quantity: item.quantity,
+        unitPrice: Number(item.unitPrice || 0).toFixed(2),
+        amount: Number(item.amount || 0).toFixed(2),
+        manufacturer: ''
+      })),
+      itemCount: normalItems.reduce((s, i) => s + Number(i.quantity || 0), 0),
+      totalAmount: Number(order.totalAmount || 0).toFixed(2),
+      discountAmount: Number(order.discountAmount || 0),
+      memberPriceSaving: 0,
+      wholeOrderDiscountSaving: 0,
+      enableWholeOrderDiscount: false,
+      paymentLabel: getPaymentLabel(payMethod),
+      paymentMethod: payMethod,
+      cashReceived: 0,
+      changeAmount: 0,
+      payAmount: Number(order.payAmount || 0).toFixed(2),
+      footerText: footer
+    }
+    const html = generateReceiptHtml(data, receiptFields.value, receiptPaperWidth.value)
+    printViaIframe(html)
+  }
+
+  // 打印中药处方笺
+  if (herbItems.length > 0) {
+    const dc = order.herbDoseCount || herbItems[0]?.doseCount || 1
+    const items = herbItems.map(item => {
+      const dpg = Number(item.dosePerGram || 0)
+      const up = Number(item.unitPrice || 0)
+      return {
+        name: item.drugName || '-',
+        dosePerGram: dpg,
+        totalGram: Math.round(dpg * dc * 10) / 10,
+        unitPrice: up,
+        amount: Number(item.amount || 0).toFixed(2)
+      }
+    })
+    const perDoseTotalWeight = herbItems.reduce((s, i) => s + Number(i.dosePerGram || 0), 0)
+    const herbTotal = herbItems.reduce((s, i) => s + Number(i.amount || 0), 0)
+
+    const data = {
+      shopName,
+      tenantName: tenantName.value,
+      storeAddress: storeAddress.value,
+      storePhone: storePhone.value,
+      subtitle: '中药处方笺',
+      orderNo: order.orderNo || '-',
+      dateTime: order.createTime || '-',
+      cashierName: order.cashierName || '-',
+      member: order.memberName ? { name: order.memberName, phone: '', points: 0 } : null,
+      doseCount: dc,
+      items,
+      perDoseTotalWeight: Math.round(perDoseTotalWeight * 10) / 10,
+      totalWeight: Math.round(perDoseTotalWeight * dc * 10) / 10,
+      herbTotal: herbTotal.toFixed(2),
+      payAmount: Number(order.payAmount || 0).toFixed(2),
+      paymentLabel: getPaymentLabel(payMethod),
+      paymentMethod: payMethod,
+      cashReceived: 0,
+      changeAmount: 0,
+      discountAmount: Number(order.discountAmount || 0),
+      footerText: footer
+    }
+    const delay = normalItems.length > 0 ? 500 : 0
+    setTimeout(() => {
+      const html = generateHerbReceiptHtml(data, receiptFields.value, receiptPaperWidth.value)
+      printViaIframe(html)
+    }, delay)
+  }
+
+  if (normalItems.length === 0 && herbItems.length === 0) {
+    ElMessage.warning('该订单没有商品明细，无法打印')
+  }
 }
 
 onMounted(() => {

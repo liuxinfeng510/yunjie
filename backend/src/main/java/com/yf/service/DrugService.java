@@ -124,7 +124,8 @@ public class DrugService {
             w.eq(DrugCategory::getName, "中药饮片")
              .eq(DrugCategory::getParentId, 0L)
              .eq(DrugCategory::getTenantId, 0L)
-             .eq(DrugCategory::getIsSystem, true);
+             .eq(DrugCategory::getIsSystem, true)
+             .last("LIMIT 1");
             DrugCategory herbRoot = drugCategoryMapper.selectOne(w);
             if (herbRoot != null && herbRoot.getId().equals(drug.getCategoryId())) return true;
         }
@@ -313,7 +314,8 @@ public class DrugService {
         herbWrapper.eq(DrugCategory::getName, "中药饮片")
                    .eq(DrugCategory::getParentId, 0L)
                    .eq(DrugCategory::getTenantId, 0L)
-                   .eq(DrugCategory::getIsSystem, true);
+                   .eq(DrugCategory::getIsSystem, true)
+                   .last("LIMIT 1");
         DrugCategory herbRoot = drugCategoryMapper.selectOne(herbWrapper);
         if (herbRoot != null) {
             herbRootCategoryId = herbRoot.getId();

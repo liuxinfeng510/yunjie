@@ -116,7 +116,8 @@ public class ExpiryWarningService {
                 LambdaQueryWrapper<Inventory> invWrapper = new LambdaQueryWrapper<>();
                 invWrapper.eq(Inventory::getStoreId, storeId)
                          .eq(Inventory::getDrugId, batch.getDrugId())
-                         .eq(Inventory::getBatchId, batch.getId());
+                         .eq(Inventory::getBatchId, batch.getId())
+                         .last("LIMIT 1");
                 Inventory inv = inventoryMapper.selectOne(invWrapper);
                 if (inv != null) {
                     item.setStockQuantity(inv.getQuantity());

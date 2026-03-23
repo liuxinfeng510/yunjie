@@ -127,6 +127,27 @@ ssh root@62.234.37.40 "systemctl restart yf-pharmacy"
 
 ## 版本记录
 
+### v1.7.2 (2026-03-23)
+- **数据库完整性修复**: 创建4张缺失数据表(out_of_stock_request、drug_combination、staff_training、wechat_user)，修复对应页面500错误；14处selectOne()调用添加LIMIT 1保护防止TooManyResultsException
+- **订单详情打印小票**: 销售记录-订单详情页新增"打印小票"功能，支持普通小票和中药处方笺分别打印；提取receipt.js公共模块复用POS收银打印逻辑
+- **利润报表数据修复**: 修复利润报表未按门店过滤导致与对账数据不一致问题；ProfitReport.vue新增storeId参数传递；修复13条历史订单store_id错误数据
+- **POS购物车库存列**: 普通商品和中药处方购物车均新增"库存"列，方便收银时查看实时库存
+- **中药处方笺优化**: 修复打印时"总重"与"单价"列数字粘连问题(增加单元格左右间距)；处方笺表头改为与普通小票一致的flex布局，统一订单信息/会员信息显示风格
+- **药品知识库更新**: 清空原有196条数据，从7个药品基础库Excel文件导入111,347条药品信息（含通用名称、商品名称、批准文号、适应症、用法用量等16个字段）
+- **中药斗柜增强**: 斗柜列起始编号配置(V48迁移)；斗柜管理和库存查询功能优化
+
+#### v1.7.2 关键文件变更
+| 文件 | 变更说明 |
+|------|----------|
+| `frontend/src/utils/receipt.js` | 新增：提取小票打印公共模块(generateReceiptHtml/generateHerbReceiptHtml/printViaIframe) |
+| `frontend/src/views/sale/OrderList.vue` | 新增handlePrint()打印小票功能，支持普通+中药分类打印 |
+| `frontend/src/views/sale/POS.vue` | 购物车新增库存列；中药处方笺表头改为flex布局；单元格间距修复 |
+| `frontend/src/views/sale/ProfitReport.vue` | 新增storeId参数过滤，修复数据不一致 |
+| `backend/src/main/java/com/yf/controller/SaleOrderController.java` | getById返回herbDoseCount和storeId |
+| `backend/src/main/java/com/yf/service/*.java` | 10个Service文件添加selectOne() LIMIT 1保护 |
+| `backend/src/main/resources/db/migration/V48__herb_cabinet_column_start_number.sql` | 斗柜列起始编号 |
+| `backend/src/main/resources/db/migration/V49__create_missing_tables.sql` | 创建4张缺失数据表 |
+
 ### v1.7.1 (2026-03-22)
 - **POS搜索优化**: 零库存过滤从内存层面移至SQL层面（EXISTS子查询），修复拼音搜索结果为空的问题
 - **POS中药调价**: 中药饮片处方区域单价支持可编辑调价（根据allowPriceAdjust字段控制）

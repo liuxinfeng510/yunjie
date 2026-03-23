@@ -132,3 +132,6 @@ export function getReconciliationPage(params) {
 export function getReconciliationDetail(id) {
   return request.get(`/reconciliation/${id}`)
 }
+export function getProfitReport(params) {
+  return request.get('/sale/profit-report', { params })
+}
